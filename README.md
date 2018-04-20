@@ -34,6 +34,6 @@ Build a real-time anomaly detection pipeline and a dashboard to show the aggrega
 
 ### Proposed architechture
 
-
+![](https://github.com/zhangdi-devel/de_insight/tree/master/pic/arch.pdf)
 
 ​	   	
