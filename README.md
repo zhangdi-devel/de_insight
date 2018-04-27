@@ -14,26 +14,36 @@ Build a real-time anomaly detection pipeline and a dashboard to show the aggrega
 ###### Use cases:
 
 - detect game cheaters
-- detect social media trollers
-- offensive posts/twitts
-- fake news
+- ~~detect social media trollers~~
+- ~~offensive posts/twitts~~
+- ~~fake news~~
 
 ### Which technologies are well-suited?
 
 ###### Datasets:
 
 - PUBG match deaths and statistics
-- Open Crawl - http://pubg.op.gg/*
+- Simulated reporting events
+- Augment the datasets
+- ~~Open Crawl - http://pubg.op.gg/*~~
 
 ###### Technologies:
 
 - Kafka
-- Spark Streaming
-- Redshift
-- Flask
+- Flink
+- Postgres ?
+- Play
+
+### What are the engineering challenges
+
+- Joining two streams by different types and sizes of window
 
 ### Proposed architechture
 
+Kafka -> Flink -> Postgres * -> Play
 
+​	* Not sure about the database now. 
 
-​	   	
+### What are the (quantitative) specifications/constriants
+
+- events will come at 10K/s, 100K/s, and maybe 1M/s
