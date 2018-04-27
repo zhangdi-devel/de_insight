@@ -40,6 +40,7 @@ Build a real-time anomaly detection pipeline and a dashboard to show the aggrega
 
 ### Proposed architechture
 
+<<<<<<< HEAD
 Kafka -> Flink -> Postgres * -> Play
 
 ​	* Not sure about the database now. 
