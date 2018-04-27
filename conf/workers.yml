@@ -1,0 +1,11 @@
+purchase_type: on_demand
+subnet_id: subnet-018d8b47d332403de
+price: 0.13
+num_instances: 3
+key_name: collector-IAM-keypair
+security_group_ids: sg-0bf0c80eea866512c
+instance_type: m4.large
+tag_name: spark-cluster
+vol_size: 100
+role: worker
+use_eips: true
