@@ -1,11 +1,38 @@
+/*
+ * MIT License
+ *
+ * Copyright (c) 2018 Zhang Di
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 package org.dizhang.pubg
 
 import org.slf4j.{Logger, LoggerFactory}
 import java.nio.file.{Files, Path, Paths}
 import java.util.Properties
+
+import com.typesafe.config.ConfigFactory
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
+import org.dizhang.pubg.UserConfig.Topic
+
 import scala.collection.mutable
-import scala.io.Source
 import scala.util.Random
 /*
 *
@@ -19,33 +46,59 @@ object Simulation {
 
   def main(args: Array[String]): Unit = {
     /* check input */
+
     if (args.length < 1) {
-      logger.error("Please provide an input file")
-      System.exit(1)
+      logger.info("No customer config file, using default")
     }
-
     val path: Path = Paths.get(args(0))
-
     if (! Files.exists(path) || ! Files.isRegularFile(path)) {
-      logger.error(s"File doesn't exists or not a regular file: ${args(0)}")
+      logger.error(s"Config file doesn't exists or not a regular file: ${args(0)}")
       System.exit(1)
     }
 
-    /* set properties */
-    val topic1 = "Match"
-    val topic2 = "Report"
-    val brokers = "localhost:9092"
-    val rnd = new Random()
+    /* raw config */
+    val conf = {
+      val defaut = ConfigFactory.load()
+      if (args.length < 1) {
+        defaut
+      } else {
+        ConfigFactory.parseFile(path.toFile).withFallback(defaut).resolve()
+      }
+    }.getConfig("simulation")
+
+    val userConfigTry = UserConfig(conf)
+    /* exit unless config is valid */
+    userConfigTry match {
+      case Left(e) =>
+        logger.error(e.toString)
+        System.exit(1)
+      case _ => Unit
+    }
+
+    val userConf: UserConfig = userConfigTry.right.get
+
+    /* set kafka properties */
+    val brokers = userConf.brokers.mkString(",")
+
     val props = new Properties()
     props.put("bootstrap.servers", brokers)
-    props.put("client.id", "SimpleReporting")
+    props.put("client.id", "SimulateReporting")
     props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
     props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
 
     val producer = new KafkaProducer[String, String](props)
 
-    /* read input */
-    val input = Source.fromFile(args(0)).getLines()
+    /* read inputs */
+    val s3s: S3Stream = new S3Stream(userConf.sss.bucket)
+
+    userConf.sss.objects.par.foreach(key => publish(s3s.get(key), userConf.topic, producer))
+
+  }
+
+  def publish(input: Iterator[String],
+              topic: Topic,
+              producer: KafkaProducer[String, String]): Unit = {
+    val rnd = new Random()
 
     /* process lines */
     var matchId: String = ""
@@ -55,9 +108,9 @@ object Simulation {
     input.foreach{line =>
       val s = line.split(",")
       if (s(6) != matchId) {
-        Random.shuffle(players.toList).take(players.length/10).foreach{
+        rnd.shuffle(players.toList).take(players.length/10).foreach{
           case (v, k) =>
-            val data = new ProducerRecord[String, String](topic2, v, k)
+            val data = new ProducerRecord[String, String](topic.reports, v, k)
             producer.send(data)
         }
         players.clear()
@@ -65,9 +118,10 @@ object Simulation {
       }
       val killer = s(1)
       val victim = s(8)
-      val data = new ProducerRecord[String, String](topic1, killer, s"$killer,$victim")
+      val data = new ProducerRecord[String, String](topic.matches, killer, s"$killer,$victim")
       players += (victim -> killer)
       producer.send(data)
     }
   }
+
 }
