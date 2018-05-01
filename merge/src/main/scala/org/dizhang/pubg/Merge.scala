@@ -3,7 +3,7 @@ package org.dizhang.pubg
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import java.text.SimpleDateFormat
 import java.util.Date
-import org.apache.hadoop.io.compress.Lz4Codec
+import org.apache.hadoop.io.compress.BZip2Codec
 import org.slf4j.LoggerFactory
 
 object Merge {
@@ -49,7 +49,7 @@ object Merge {
       }.join(matches).map{
         case (_, (e, m)) => s"$e,$m"
       }
-    data.saveAsTextFile("s3a://zhangdi-insight/pubg/merged.json.lz4", classOf[Lz4Codec])
+    data.saveAsTextFile("s3a://zhangdi-insight/pubg/merged.json.lz4", classOf[BZip2Codec])
 
   }
 
