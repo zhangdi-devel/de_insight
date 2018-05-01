@@ -49,7 +49,7 @@ object Merge {
       }.join(matches).map{
         case (_, (e, m)) => s"$e,$m"
       }
-    data.saveAsTextFile("s3a://zhangdi-insight/pubg/merged.json.lz4", Class[Lz4Codec])
+    data.saveAsTextFile("s3a://zhangdi-insight/pubg/merged.json.lz4", classOf[Lz4Codec])
 
   }
 
