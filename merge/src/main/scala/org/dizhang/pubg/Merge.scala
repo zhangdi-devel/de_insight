@@ -4,9 +4,11 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 import java.text.SimpleDateFormat
 import java.util.Date
 
+import org.slf4j.LoggerFactory
+
 object Merge {
 
-  val SCALE = 10000
+  val logger = LoggerFactory.getLogger(getClass)
 
   def main(args: Array[String]): Unit = {
 
@@ -19,7 +21,7 @@ object Merge {
     val sdf = new SimpleDateFormat("yyyy-mm-dd'T'hh:mm:ss'+'SSSS")
     /* unique matches */
     val matches = agg.rdd.map{row =>
-      val date: Date = sdf.parse(row.getString(0))
+      val date: Long = sdf.parse(row.getString(0)).getTime
       val gameSize = row.getString(1).toInt
       val id = row.getString(2)
       val mode = row.getString(3)
@@ -27,7 +29,12 @@ object Merge {
       (id, Match(date, gameSize, id, mode, partySize))
     }.reduceByKey((a, _) => a)
 
-    val start: Date = matches.map(_._2.date).min()
+    matches.cache()
+
+    val start: Long = matches.map(_._2.date).min()
+
+    logger.info(s"start time: $start ${sdf.format(new Date(start))}")
+
     val data =
       death.rdd.map{row =>
         val s = row.toSeq.map(v => v.asInstanceOf[String])

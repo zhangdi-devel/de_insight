@@ -1,8 +1,6 @@
 package org.dizhang.pubg
 
-import java.util.Date
-
-case class Match(date: Date,
+case class Match(date: Long,
                  gameSize: Int,
                  id: String,
                  mode: String,
