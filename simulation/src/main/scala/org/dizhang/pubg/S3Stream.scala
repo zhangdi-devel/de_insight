@@ -26,7 +26,7 @@ package org.dizhang.pubg
 
 import awscala._
 import s3._
-
+import org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream
 import scala.io.Source
 
 class S3Stream(bucketName: String)
@@ -34,7 +34,7 @@ class S3Stream(bucketName: String)
 
   lazy val bucket: Option[Bucket] = s3.bucket(bucketName)
 
-  def get(key: String): Iterator[String] = {
+  def get(key: String, codec: String = "plain"): Iterator[String] = {
 
     val is =
       for {
@@ -44,7 +44,13 @@ class S3Stream(bucketName: String)
 
     is match {
       case None => Iterator.empty
-      case Some(s) => Source.fromInputStream(s).getLines()
+      case Some(s) => codec match {
+        case "bzip2" =>
+          val bzip2 = new BZip2CompressorInputStream(s)
+          Source.fromInputStream(bzip2).getLines()
+        case _ =>
+          Source.fromInputStream(s).getLines()
+      }
     }
 
   }

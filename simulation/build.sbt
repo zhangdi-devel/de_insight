@@ -23,7 +23,8 @@ libraryDependencies ++= Seq(
   "org.slf4j" % "slf4j-api" % "1.7.5" % "provided",
   "org.slf4j" % "slf4j-log4j12" % "1.7.5" % "provided",
   "org.apache.kafka" %% "kafka" % "1.1.0",
-  "com.github.pureconfig" %% "pureconfig" % "0.9.1"
+  "com.github.pureconfig" %% "pureconfig" % "0.9.1",
+  "org.apache.commons" % "commons-compress" % "1.16.1"
 )
 
 assemblyMergeStrategy in assembly := {

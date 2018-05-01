@@ -91,7 +91,7 @@ object Simulation {
     /* read inputs */
     val s3s: S3Stream = new S3Stream(userConf.sss.bucket)
 
-    userConf.sss.objects.par.foreach(key => publish(s3s.get(key), userConf.topic, producer))
+    userConf.sss.objects.foreach(key => publish(s3s.get(key), userConf.topic, producer))
 
   }
 
