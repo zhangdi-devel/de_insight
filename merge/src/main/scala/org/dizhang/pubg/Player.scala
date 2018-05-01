@@ -3,7 +3,11 @@ package org.dizhang.pubg
 case class Player(id: String,
                   placement: Double,
                   x: Double,
-                  y: Double)
+                  y: Double) {
+  override def toString: String = {
+    s"$id,$placement,$x,$y"
+  }
+}
 
 object Player {
   def apply(s: Seq[String]): Player = {

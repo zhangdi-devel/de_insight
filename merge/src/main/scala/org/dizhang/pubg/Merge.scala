@@ -3,7 +3,7 @@ package org.dizhang.pubg
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import java.text.SimpleDateFormat
 import java.util.Date
-
+import org.apache.hadoop.io.compress.Lz4Codec
 import org.slf4j.LoggerFactory
 
 object Merge {
@@ -47,14 +47,10 @@ object Merge {
           Some(event.matchId -> event)
         }
       }.join(matches).map{
-        case (_, (e, m)) => (e, m)
+        case (_, (e, m)) => s"$e,$m"
       }
+    data.saveAsTextFile("s3a://zhangdi-insight/pubg/merged.json.lz4", Class[Lz4Codec])
 
-    spark.createDataFrame(data).write
-      .format("json")
-      .mode("overwrite")
-      .option("compression", "lz4")
-      .save("s3a://zhangdi-insight/pubg/merged.json.lz4")
   }
 
   def readCsv(path: String)(implicit spark: SparkSession): DataFrame = {
