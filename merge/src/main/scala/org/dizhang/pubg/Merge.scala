@@ -36,12 +36,16 @@ object Merge {
     logger.info(s"start time: $start ${sdf.format(new Date(start))}")
 
     val data =
-      death.rdd.map{row =>
+      death.rdd.flatMap{row =>
         val s = row.toSeq.map(v => v.asInstanceOf[String])
-        val killer = Player(s.slice(1, 5))
-        val victim = Player(s.slice(8, 12))
-        val event = Event(s(0), killer, s(5), s(6), s(7).toDouble, victim)
-        (event.matchId, event)
+        if (s.length < 12) {
+          None
+        } else {
+          val killer = Player(s.slice(1, 5))
+          val victim = Player(s.slice(8, 12))
+          val event = Event(s(0), killer, s(5), s(6), s(7).toDouble, victim)
+          Some(event.matchId -> event)
+        }
       }.join(matches).map{
         case (_, (e, m)) => (e, m)
       }
