@@ -3,7 +3,6 @@ package org.dizhang.pubg
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import java.text.SimpleDateFormat
 import java.util.Date
-import io.circe._, io.circe.generic.auto._, io.circe.parser._, io.circe.syntax._
 
 object Merge {
 
@@ -17,10 +16,10 @@ object Merge {
 
     val agg = readCsv("s3a://zhangdi-insight/pubg/agg.*.csv")
 
-    val sdf = new SimpleDateFormat("yyyy-mm-dd-hh:mm:ss")
+    val sdf = new SimpleDateFormat("yyyy-mm-dd'T'hh:mm:ss'+'SSSS")
     /* unique matches */
     val matches = agg.rdd.map{row =>
-      val date: Date = sdf.parse(row.getString(0).replaceFirst("T", "-"))
+      val date: Date = sdf.parse(row.getString(0))
       val gameSize = row.getString(1).toInt
       val id = row.getString(2)
       val mode = row.getString(3)
@@ -37,16 +36,20 @@ object Merge {
         val event = Event(s(0), killer, s(5), s(6), s(7).toDouble, victim)
         (event.matchId, event)
       }.join(matches).map{
-        case (_, (e, m)) =>
-
-
-
+        case (_, (e, m)) => (e, m)
       }
 
+    spark.createDataFrame(data).write
+      .format("json")
+      .mode("overwrite")
+      .option("compression", "lz4")
+      .save("s3a://zhangdi-insight/pubg/merged.json.lz4")
   }
 
   def readCsv(path: String)(implicit spark: SparkSession): DataFrame = {
-    spark.read.format("csv").option("header", "true").load(path)
+    spark.read.format("csv")
+      .option("header", "true")
+      .load(path)
   }
 
 }
