@@ -38,7 +38,7 @@ object Merge {
     val data =
       death.rdd.flatMap{row =>
         val s = row.toSeq.map(v => v.asInstanceOf[String])
-        if (s.length < 12) {
+        if (s.length < 12 || s.contains(null)) {
           None
         } else {
           val killer = Player(s.slice(1, 5))
