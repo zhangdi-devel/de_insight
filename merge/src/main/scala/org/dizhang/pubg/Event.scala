@@ -7,4 +7,8 @@ case class Event(weapon: String,
                  map: String,
                  matchId: String,
                  time: Double,
-                 victim: Player)
+                 victim: Player) {
+  override def toString: String = {
+    s"$matchId,$map,$killer,$victim,$weapon,$time"
+  }
+}
