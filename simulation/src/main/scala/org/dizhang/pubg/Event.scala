@@ -1,3 +1,5 @@
 package org.dizhang.pubg
 
-case class Event()
+case class Event(matchId: String,
+                 map: String,
+                )
