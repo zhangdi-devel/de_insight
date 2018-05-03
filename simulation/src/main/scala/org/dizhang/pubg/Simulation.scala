@@ -27,11 +27,8 @@ package org.dizhang.pubg
 import org.slf4j.{Logger, LoggerFactory}
 import java.nio.file.{Files, Path, Paths}
 import java.util.Properties
-
 import com.typesafe.config.ConfigFactory
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
-import org.dizhang.pubg.UserConfig.Topic
-
 import scala.collection.mutable
 import scala.util.Random
 /*
@@ -91,35 +88,46 @@ object Simulation {
     /* read inputs */
     val s3s: S3Stream = new S3Stream(userConf.sss.bucket)
 
-    userConf.sss.objects.foreach(key => publish(s3s.get(key), userConf.topic, producer))
+    userConf.sss.objects.foreach(key => publish(s3s.get(key), producer)(userConf))
 
   }
 
   def publish(input: Iterator[String],
-              topic: Topic,
-              producer: KafkaProducer[String, String]): Unit = {
+              producer: KafkaProducer[String, String])
+             (userConf: UserConfig): Unit = {
     val rnd = new Random()
 
+    val topic = userConf.topic
     /* process lines */
     var matchId: String = ""
-
-    val players: mutable.ArrayBuffer[(String, String)] = new mutable.ArrayBuffer[(String, String)]()
+    val players: mutable.ArrayBuffer[(String, (String, Long))] = new mutable.ArrayBuffer[(String, (String, Long))]()
 
     input.foreach{line =>
-      val s = line.split(",")
-      if (s(6) != matchId) {
+      val record: Record = Record(line)
+      if (record.event.matchId != matchId) {
         rnd.shuffle(players.toList).take(players.length/10).foreach{
-          case (v, k) =>
-            val data = new ProducerRecord[String, String](topic.reports, v, k)
+          case (victim, (killer, time)) =>
+            /* at anytime in the next two days */
+            val reportTime = time + rnd.nextInt(172800)/userConf.scale
+            val data =
+              new ProducerRecord[String, String](
+                topic.reports, topic.partition, reportTime, matchId, s"$victim,$killer"
+              )
             producer.send(data)
         }
         players.clear()
-        matchId = s(6)
+        matchId = record.event.matchId
+
       }
-      val killer = s(1)
-      val victim = s(8)
-      val data = new ProducerRecord[String, String](topic.matches, killer, s"$killer,$victim")
-      players += (victim -> killer)
+      val event = record.event
+      val killer = event.killer
+      val victim = event.victim
+      val game = record.game
+      val eventTime = userConf.start + (game.date - userConf.start + event.time.toInt)/userConf.scale
+      val data = new ProducerRecord[String, String](
+        topic.matches, topic.partition, eventTime, event.matchId, record.toString
+      )
+      players += (victim.id -> (killer.id -> eventTime))
       producer.send(data)
     }
   }

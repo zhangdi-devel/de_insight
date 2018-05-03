@@ -4,15 +4,14 @@ lazy val root = (project in file("."))
     name := "analysis",
     commonSettings,
     assemblySettings,
-    libraryDependencies ++= commonDependencies ++ Seq(
-
-    )
+    libraryDependencies ++= commonDependencies
   ).dependsOn(utils)
 
 lazy val utils = (project in file("utils"))
 	.settings(
     name := "utils",
-    commonSettings
+    commonSettings,
+    libraryDependencies ++= commonDependencies
   )
 
 lazy val merge = (project in file("merge"))

@@ -26,7 +26,7 @@ object Merge {
       val id = row.getString(2)
       val mode = row.getString(3)
       val partySize = row.getString(4).toInt
-      (id, Match(date, gameSize, id, mode, partySize))
+      (id, Game(date, gameSize, id, mode, partySize))
     }.reduceByKey((a, _) => a)
 
     matches.cache()

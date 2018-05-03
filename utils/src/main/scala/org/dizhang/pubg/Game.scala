@@ -16,12 +16,18 @@
 
 package org.dizhang.pubg
 
-case class Match(date: Long,
-                 gameSize: Int,
-                 id: String,
-                 mode: String,
-                 partySize: Int) {
+case class Game(date: Long,
+                gameSize: Int,
+                id: String,
+                mode: String,
+                partySize: Int) {
   override def toString: String = {
     s"$date,$gameSize,$partySize,$mode"
+  }
+}
+
+object Game {
+  def apply(data: Seq[String]): Game = {
+    Game(data(0).toLong, data(1).toInt, "", data(3), data(2).toInt)
   }
 }

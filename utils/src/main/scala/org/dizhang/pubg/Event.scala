@@ -27,3 +27,9 @@ case class Event(weapon: String,
     s"$matchId,$map,$killer,$victim,$weapon,$time"
   }
 }
+
+object Event {
+  def apply(data: Seq[String]): Event = {
+    Event(data(10), Player(data.slice(2, 6)), data(1), data(0), data.last.toDouble, Player(data.slice(6,10)))
+  }
+}

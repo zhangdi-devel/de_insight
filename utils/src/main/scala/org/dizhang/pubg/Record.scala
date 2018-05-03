@@ -24,23 +24,13 @@
 
 package org.dizhang.pubg
 
-import UserConfig._
-import com.typesafe.config.Config
-import pureconfig.{error, loadConfig}
+case class Record(event: Event, game: Game)
 
-case class UserConfig(sss: S3,
-                      scale: Int,
-                      start: Long,
-                      topic: Topic,
-                      brokers: List[String])
-
-object UserConfig {
-
-  def apply(conf: Config): Either[error.ConfigReaderFailures, UserConfig] = {
-    loadConfig[UserConfig](conf)
+object Record {
+  def apply(line: String): Record = {
+    val s = line.split(",")
+    val e = Event(s.slice(0, 12))
+    val g = Game(s.slice(12, 16))
+    Record(e, g)
   }
-
-  case class S3(bucket: String, objects: List[String])
-  case class Topic(matches: String, reports: String, partition: Int)
-
 }

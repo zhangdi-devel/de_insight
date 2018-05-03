@@ -24,23 +24,16 @@
 
 package org.dizhang.pubg
 
-import UserConfig._
-import com.typesafe.config.Config
-import pureconfig.{error, loadConfig}
+class RecordSpec extends BaseSpec {
+  val line = "2U4GBNA0Ymm6YY-DI35qiTfWmn7xFVDqLSWNAAchnjO2v1-5YHTTVcfx077UIFao,ERANGEL,Pikard,25.0,295350.3,146474.6,DoWork-_x,49.0,0.0,0.0,Punch,120.0,1485321995000,49,2,tpp"
 
-case class UserConfig(sss: S3,
-                      scale: Int,
-                      start: Long,
-                      topic: Topic,
-                      brokers: List[String])
+  "A Record" should "be parsed" in {
+    val rec = Record(line)
 
-object UserConfig {
+    logger.info(s"event: ${rec.event}")
+    logger.info(s"game: ${rec.game}")
+    logger.info(s"killer: ${rec.event.killer}")
+    logger.info(s"victim: ${rec.event.victim}")
 
-  def apply(conf: Config): Either[error.ConfigReaderFailures, UserConfig] = {
-    loadConfig[UserConfig](conf)
   }
-
-  case class S3(bucket: String, objects: List[String])
-  case class Topic(matches: String, reports: String, partition: Int)
-
 }
