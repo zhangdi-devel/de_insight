@@ -31,6 +31,8 @@ import pureconfig.{error, loadConfig}
 case class UserConfig(sss: S3,
                       scale: Int,
                       start: Long,
+                      delay: Int,
+                      prob: Double,
                       topic: Topic,
                       brokers: List[String])
 

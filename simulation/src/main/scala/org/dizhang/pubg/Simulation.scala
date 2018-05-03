@@ -106,14 +106,13 @@ object Simulation {
     input.foreach{line =>
       val record: Record = Record(line)
       if (record.event.matchId != matchId) {
-
-        rnd.shuffle(players.toList).take(players.length/10).foreach{
+        rnd.shuffle(players.toList).take(players.length/20).foreach{
           case (vic, (kil, time)) =>
             /* at anytime in the next two days */
-            val reportTime = time + rnd.nextInt(172800)/userConf.scale
+            val reportTime = time + rnd.nextInt(userConf.delay)/userConf.scale
             val data =
               new ProducerRecord[String, String](
-                topic.reports, partition, reportTime, matchId, s"$vic,$kil"
+                topic.reports, partition, reportTime, matchId, s"$vic,$kil,$matchId"
               )
             producer.send(data)
         }
