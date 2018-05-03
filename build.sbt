@@ -67,8 +67,8 @@ lazy val compilerSettings = Seq(
 
 lazy val commonDependencies = Seq(
   "org.scalatest" %% "scalatest" % "3.0.5" % Test,
-  "org.slf4j" % "slf4j-api" % "1.7.5" % "provided",
-  "org.slf4j" % "slf4j-log4j12" % "1.7.5" % "provided",
+  "org.slf4j" % "slf4j-api" % "1.7.5",
+  "org.slf4j" % "slf4j-log4j12" % "1.7.5",
   "com.github.pureconfig" %% "pureconfig" % "0.9.1"
 
 )

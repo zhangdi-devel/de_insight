@@ -27,10 +27,12 @@ package org.dizhang.pubg
 import org.slf4j.{Logger, LoggerFactory}
 import java.nio.file.{Files, Path, Paths}
 import java.util.Properties
+
 import com.typesafe.config.ConfigFactory
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
+
 import scala.collection.mutable
-import scala.util.Random
+import scala.util.{Failure, Random, Success, Try}
 /*
 *
 * This program will simulate stream of reporting events
@@ -42,54 +44,39 @@ object Simulation {
   val logger: Logger = LoggerFactory.getLogger(getClass)
 
   def main(args: Array[String]): Unit = {
-    /* check input */
 
-    if (args.length < 1) {
-      logger.info("No customer config file, using default")
-    }
-    val path: Path = Paths.get(args(0))
-    if (! Files.exists(path) || ! Files.isRegularFile(path)) {
-      logger.error(s"Config file doesn't exists or not a regular file: ${args(0)}")
-      System.exit(1)
-    }
+    val default = ConfigFactory.load()
+    val rawConf =
+      (Try(Paths.get(args(0))) match {
+        case Failure(e) =>
+          logger.warn(s"${e.getMessage}\n\twill use default conf")
+          default
+        case Success(path) =>
+          ConfigFactory.parseFile(path.toFile).withFallback(default).resolve()
+      }).getConfig("simulation")
 
-    /* raw config */
-    val conf = {
-      val defaut = ConfigFactory.load()
-      if (args.length < 1) {
-        defaut
-      } else {
-        ConfigFactory.parseFile(path.toFile).withFallback(defaut).resolve()
-      }
-    }.getConfig("simulation")
 
-    val userConfigTry = UserConfig(conf)
-    /* exit unless config is valid */
-    userConfigTry match {
+    UserConfig(rawConf) match {
       case Left(e) =>
         logger.error(e.toString)
         System.exit(1)
-      case _ => Unit
+      case Right(userConf) =>
+        /* set kafka properties */
+        val brokers = userConf.brokers.mkString(",")
+
+        val props = new Properties()
+        props.put("bootstrap.servers", brokers)
+        props.put("client.id", "SimulateReporting")
+        props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
+        props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
+
+        val producer = new KafkaProducer[String, String](props)
+
+        /* read inputs */
+        val s3s: S3Stream = new S3Stream(userConf.sss.bucket)
+
+        userConf.sss.objects.foreach(key => publish(s3s.get(key), producer)(userConf))
     }
-
-    val userConf: UserConfig = userConfigTry.right.get
-
-    /* set kafka properties */
-    val brokers = userConf.brokers.mkString(",")
-
-    val props = new Properties()
-    props.put("bootstrap.servers", brokers)
-    props.put("client.id", "SimulateReporting")
-    props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
-    props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
-
-    val producer = new KafkaProducer[String, String](props)
-
-    /* read inputs */
-    val s3s: S3Stream = new S3Stream(userConf.sss.bucket)
-
-    userConf.sss.objects.foreach(key => publish(s3s.get(key), producer)(userConf))
-
   }
 
   def publish(input: Iterator[String],
