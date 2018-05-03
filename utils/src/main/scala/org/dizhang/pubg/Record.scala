@@ -24,7 +24,11 @@
 
 package org.dizhang.pubg
 
-case class Record(event: Event, game: Game)
+case class Record(event: Event, game: Game) {
+  override def toString: String = {
+    s"$event,$game"
+  }
+}
 
 object Record {
   def apply(line: String): Record = {
