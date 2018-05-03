@@ -31,7 +31,7 @@ import java.util.Properties
 import com.typesafe.config.ConfigFactory
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 import org.apache.kafka.clients.admin.{AdminClient, NewTopic}
-import org.apache.kafka.common.config.{ConfigResource, TopicConfig}
+import collection.JavaConverters._
 
 import scala.collection.mutable
 import scala.util.{Failure, Random, Success, Try}
@@ -78,6 +78,8 @@ object Simulation {
         val replicas = userConf.topic.replicas
         val matches = new NewTopic(userConf.topic.matches, partitions, replicas)
         val reports = new NewTopic(userConf.topic.reports, partitions, replicas)
+
+        adminClient.createTopics(List(matches, reports).asJavaCollection)
 
         val producer = new KafkaProducer[String, String](props)
 
