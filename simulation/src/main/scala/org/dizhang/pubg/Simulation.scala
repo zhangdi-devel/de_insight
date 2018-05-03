@@ -30,6 +30,8 @@ import java.util.Properties
 
 import com.typesafe.config.ConfigFactory
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
+import org.apache.kafka.clients.admin.{AdminClient, NewTopic}
+import org.apache.kafka.common.config.{ConfigResource, TopicConfig}
 
 import scala.collection.mutable
 import scala.util.{Failure, Random, Success, Try}
@@ -70,6 +72,13 @@ object Simulation {
         props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
         props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
 
+        val adminClient = AdminClient.create(props)
+
+        val partitions = userConf.topic.partitions
+        val replicas = userConf.topic.replicas
+        val matches = new NewTopic(userConf.topic.matches, partitions, replicas)
+        val reports = new NewTopic(userConf.topic.reports, partitions, replicas)
+
         val producer = new KafkaProducer[String, String](props)
 
         /* read inputs */
@@ -87,24 +96,28 @@ object Simulation {
     val topic = userConf.topic
     /* process lines */
     var matchId: String = ""
+    var matchCnt: Int = 0
+    var partition: Int = 0
     val players: mutable.ArrayBuffer[(String, (String, Long))] = new mutable.ArrayBuffer[(String, (String, Long))]()
 
     input.foreach{line =>
       val record: Record = Record(line)
       if (record.event.matchId != matchId) {
+
         rnd.shuffle(players.toList).take(players.length/10).foreach{
-          case (victim, (killer, time)) =>
+          case (vic, (kil, time)) =>
             /* at anytime in the next two days */
             val reportTime = time + rnd.nextInt(172800)/userConf.scale
             val data =
               new ProducerRecord[String, String](
-                topic.reports, topic.partition, reportTime, matchId, s"$victim,$killer"
+                topic.reports, partition, reportTime, matchId, s"$vic,$kil"
               )
             producer.send(data)
         }
         players.clear()
         matchId = record.event.matchId
-
+        matchCnt += 1
+        partition = matchCnt/topic.sequential%topic.partitions
       }
       val event = record.event
       val killer = event.killer
@@ -112,7 +125,7 @@ object Simulation {
       val game = record.game
       val eventTime = userConf.start + (game.date - userConf.start + event.time.toInt)/userConf.scale
       val data = new ProducerRecord[String, String](
-        topic.matches, topic.partition, eventTime, event.matchId, record.toString
+        topic.matches, partition, eventTime, event.matchId, record.toString
       )
       players += (victim.id -> (killer.id -> eventTime))
       producer.send(data)

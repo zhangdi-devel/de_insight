@@ -43,6 +43,10 @@ object UserConfig {
   case class S3(bucket: String,
                 objects: List[String],
                 compress: String)
-  case class Topic(matches: String, reports: String, partition: Int)
+  case class Topic(matches: String,
+                   reports: String,
+                   partitions: Int,
+                   replicas: Short,
+                   sequential: Int)
 
 }
