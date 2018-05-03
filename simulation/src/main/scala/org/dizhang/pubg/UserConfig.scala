@@ -40,7 +40,9 @@ object UserConfig {
     loadConfig[UserConfig](conf)
   }
 
-  case class S3(bucket: String, objects: List[String])
+  case class S3(bucket: String,
+                objects: List[String],
+                compress: String)
   case class Topic(matches: String, reports: String, partition: Int)
 
 }

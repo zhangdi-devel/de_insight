@@ -75,7 +75,7 @@ object Simulation {
         /* read inputs */
         val s3s: S3Stream = new S3Stream(userConf.sss.bucket)
 
-        userConf.sss.objects.foreach(key => publish(s3s.get(key), producer)(userConf))
+        userConf.sss.objects.foreach(key => publish(s3s.get(key, userConf.sss.compress), producer)(userConf))
     }
   }
 
