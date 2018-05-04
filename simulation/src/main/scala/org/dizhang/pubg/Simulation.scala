@@ -112,7 +112,7 @@ object Simulation {
             val reportTime = time + rnd.nextInt(userConf.delay)/userConf.scale
             val data =
               new ProducerRecord[String, String](
-                topic.reports, partition, reportTime, matchId, s"$vic,$kil,$matchId"
+                topic.reports, partition, reportTime, matchId, s"$vic,$kil,$matchId,$reportTime"
               )
             producer.send(data)
         }
@@ -127,7 +127,7 @@ object Simulation {
       val game = record.game
       val eventTime = userConf.start + (game.date - userConf.start + event.time.toInt)/userConf.scale
       val data = new ProducerRecord[String, String](
-        topic.matches, partition, eventTime, event.matchId, record.toString
+        topic.matches, partition, eventTime, event.matchId, s"$record,$eventTime"
       )
       players += (victim.id -> (killer.id -> eventTime))
       producer.send(data)
