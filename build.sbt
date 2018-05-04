@@ -4,7 +4,12 @@ lazy val root = (project in file("."))
     name := "analysis",
     commonSettings,
     assemblySettings,
-    libraryDependencies ++= commonDependencies
+    libraryDependencies ++= commonDependencies ++ Seq(
+      "org.apache.flink" %% "flink-scala" % "1.4.2" % "provided",
+      "org.apache.flink" %% "flink-streaming-scala" % "1.4.2" % "provided",
+      "org.apache.flink" %% "flink-connector-kafka-0.11" % "1.4.2",
+      "org.postgresql" % "postgresql" % "42.2.2"
+    )
   ).dependsOn(utils)
 
 lazy val utils = (project in file("utils"))
@@ -70,7 +75,6 @@ lazy val commonDependencies = Seq(
   "org.slf4j" % "slf4j-api" % "1.7.5",
   "org.slf4j" % "slf4j-log4j12" % "1.7.5",
   "com.github.pureconfig" %% "pureconfig" % "0.9.1"
-
 )
 
 lazy val assemblySettings = Seq(
