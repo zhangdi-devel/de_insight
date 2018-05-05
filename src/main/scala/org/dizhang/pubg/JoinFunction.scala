@@ -17,26 +17,10 @@
 package org.dizhang.pubg
 import org.apache.flink.api.common.state.{ValueState, ValueStateDescriptor}
 import org.apache.flink.streaming.api.scala._
-import org.apache.flink.streaming.api.functions.co.RichCoFlatMapFunction
+import org.apache.flink.streaming.api.functions.co.CoProcessFunction
 import org.apache.flink.util.Collector
 import org.dizhang.pubg.Stat.{KeyedCredit, KeyedGrade, Merged}
 
-class JoinFunction extends RichCoFlatMapFunction[KeyedCredit, KeyedGrade, Merged] {
-
-  lazy val creditState: ValueState[KeyedCredit] = getRuntimeContext.getState(
-    new ValueStateDescriptor[KeyedCredit]("saved credit", classOf[KeyedCredit])
-  )
-  lazy val gradeState: ValueState[KeyedGrade] = getRuntimeContext.getState(
-    new ValueStateDescriptor[KeyedGrade]("saved grade", classOf[KeyedGrade])
-  )
-
-  def flatMap1(value: KeyedCredit, out: Collector[Merged]): Unit = {
-    val credit = creditState.value()
-
-    if (credit != null) {
-      creditState.clear()
-      out.collect(Merged(credit.player, ))
-    }
-  }
-
+class JoinFunction extends CoProcessFunction[KeyedCredit, KeyedGrade, Merged] {
+  
 }
