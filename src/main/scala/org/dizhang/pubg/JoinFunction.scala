@@ -22,5 +22,9 @@ import org.apache.flink.util.Collector
 import org.dizhang.pubg.Stat.{KeyedCredit, KeyedGrade, Merged}
 
 class JoinFunction extends CoProcessFunction[KeyedCredit, KeyedGrade, Merged] {
-  
+  override def processElement1(value: KeyedCredit,
+                               ctx: CoProcessFunction[KeyedCredit, KeyedGrade, Merged]#Context,
+                               out: Collector[Merged]): Unit = {
+
+  }
 }

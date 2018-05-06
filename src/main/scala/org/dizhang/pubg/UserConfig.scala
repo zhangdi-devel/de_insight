@@ -32,7 +32,10 @@ import org.slf4j.{Logger, LoggerFactory}
 
 import scala.util.{Failure, Success, Try}
 
-case class UserConfig(group: String, topic: Topic, brokers: List[String])
+case class UserConfig(group: String,
+                      watermark: Int,
+                      topic: Topic,
+                      brokers: List[String])
 
 object UserConfig {
 
@@ -52,5 +55,5 @@ object UserConfig {
     }
   }
 
-  case class Topic(matches: String, reports: String)
+  case class Topic(matches: String, reports: String, offset: String)
 }

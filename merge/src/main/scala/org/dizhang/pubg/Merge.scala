@@ -48,8 +48,11 @@ object Merge {
         }
       }.join(matches).map{
         case (_, (e, m)) => s"$e,$m"
+      }.sortBy{ l =>
+        val r = Record(l)
+        r.game.date + Math.floor(r.event.inGameTime * 1000).toInt
       }
-    data.saveAsTextFile("s3a://zhangdi-insight/pubg/merged.json.lz4", classOf[BZip2Codec])
+    data.saveAsTextFile("s3a://zhangdi-insight/pubg/merged.events", classOf[BZip2Codec])
 
   }
 

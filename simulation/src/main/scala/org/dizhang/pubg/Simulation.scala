@@ -94,43 +94,59 @@ object Simulation {
   def publish(input: Iterator[String],
               producer: KafkaProducer[String, String])
              (userConf: UserConfig): Unit = {
-    val rnd = new Random()
+
+    val lambda = 1.0/userConf.delay
+    val ed = ExponentialDistribution(lambda)
 
     val topic = userConf.topic
-    /* process lines */
+
+    /* This PQ holds the reporting events that is simulated to emit in future */
+    val unHappened: mutable.PriorityQueue[Report] = new mutable.PriorityQueue[Report]()(Report.ByTime)
+
+    /* match id and idx, to compute the partition */
     var matchId: String = ""
     var matchCnt: Int = 0
     var partition: Int = 0
-    val players: mutable.ArrayBuffer[(String, (String, Long))] = new mutable.ArrayBuffer[(String, (String, Long))]()
+    input.foreach{ line =>
+      val record = Record(line)
+      val event = record.event
+      val game = record.game
+      val killer = event.killer
+      val victim = event.victim
+      val eventTime = game.date + (event.inGameTime * 1000).toInt
 
-    input.foreach{line =>
-      val record: Record = Record(line)
-      if (record.event.matchId != matchId) {
-        rnd.shuffle(players.toList).take(players.length/20).foreach{
-          case (vic, (kil, time)) =>
-            /* at anytime in the next two days */
-            val reportTime = time + rnd.nextInt(userConf.delay)/userConf.scale
-            val data =
-              new ProducerRecord[String, String](
-                topic.reports, partition, reportTime, matchId, s"$vic,$kil,$matchId,$reportTime"
-              )
-            producer.send(data)
-        }
-        players.clear()
-        matchId = record.event.matchId
+      /* update match id and idx */
+      if (event.matchId != matchId) {
+        matchId = event.matchId
         matchCnt += 1
         partition = matchCnt/topic.sequential%topic.partitions
       }
-      val event = record.event
-      val killer = event.killer
-      val victim = event.victim
-      val game = record.game
-      val eventTime = userConf.start + (game.date - userConf.start + event.time.toInt)/userConf.scale
-      val data = new ProducerRecord[String, String](
-        topic.matches, partition, eventTime, event.matchId, s"$record,$eventTime"
+
+      /* emit report for a probability */
+      if (Random.nextDouble() < userConf.prob) {
+        /* set the reporting time in the future */
+        val reportingTime = eventTime + (ed.next() * 1000).toInt
+        val report = Report(victim.id, killer.id, game.id, reportingTime)
+        unHappened.enqueue(report)
+      }
+
+      /* prepare the match event keyed by matchId */
+      val matchData = new ProducerRecord[String, String](
+        topic.matches, partition, eventTime, matchId, record.toString
       )
-      players += (victim.id -> (killer.id -> eventTime))
-      producer.send(data)
+      producer.send(matchData)
+
+      /* check if there is any reports to be sent and passed the current time (the match event time)
+      * send the reports if they satisfy the conditions
+      * */
+      while (unHappened.nonEmpty && unHappened.head.time <= eventTime) {
+        val report = unHappened.dequeue()
+        val reportData = new ProducerRecord[String, String](
+          topic.reports, partition, report.time, report.matchId, s"$record,$eventTime"
+        )
+        producer.send(reportData)
+      }
+
     }
   }
 

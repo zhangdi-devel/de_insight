@@ -20,3 +20,13 @@ case class Report(reporter: String,
                   cheater: String,
                   matchId: String,
                   time: Long)
+
+object Report {
+
+  implicit object ByTime extends Ordering[Report] {
+    def compare(x: Report, y: Report): Int = {
+      -(x.time compare y.time)
+    }
+  }
+
+}
