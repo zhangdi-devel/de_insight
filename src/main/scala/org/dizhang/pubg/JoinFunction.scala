@@ -27,12 +27,15 @@ class JoinFunction(window: Map[String, List[Int]], len1: Int, len2: Int)
     new ValueStateDescriptor[Map[String, PlayerStates]]("saved stats", classOf[Map[String, PlayerStates]])
   )
 
+  val counter1 = new Stat.Counter(len1)
+  val counter2 = new Stat.Counter(len2)
+
   override def flatMap1(value: KeyedCounter, out: Collector[KeyedCounter]): Unit = {
     val buffer = statsBuffer.value()
     if (statsBuffer == null) {
       val init = window.map{
         case (windowName, windows :: windowSize :: _) =>
-          val ps = new PlayerStates(windows, windowSize, len1, len2)
+          val ps = new PlayerStates(windows, windowSize, len1, len2)(counter1)
           ps.addElement(value._3, value._2, first = true)
           out.collect((s"${value._1},$windowName", value._2, ps.emitElement()))
           (windowName, ps)
@@ -53,7 +56,7 @@ class JoinFunction(window: Map[String, List[Int]], len1: Int, len2: Int)
     if (statsBuffer == null) {
       val init = window.map{
         case (windowName, windows :: windowSize :: _) =>
-          val ps = new PlayerStates(windows, windowSize, len1, len2)
+          val ps = new PlayerStates(windows, windowSize, len1, len2)(len2)
           ps.addElement(value._3, value._2, first = false)
           (windowName, ps)
       }
