@@ -16,17 +16,44 @@
 
 package org.dizhang.pubg
 
-sealed trait Stat
+sealed trait Stat {
+  def zero: Array[Int]
+  def add(x: Array[Int], y: Array[Int]): Array[Int]
+  def merge(x: Array[Int], y: Array[Int]): Array[Int]
+  def sub(x: Array[Int], y: Array[Int]): Array[Int]
+}
 
 object Stat {
 
-  case class Grade(kills: Int, deaths: Int) extends Stat {
+
+  type KeyedCounter = (String, Long, Array[Int])
+
+  class Counter(val length: Int) extends Stat {
+
+    val zero: Array[Int] =  Array.fill(length)(0)
+
+    override def add(x: Array[Int], y: Array[Int]): Array[Int] = {
+      x.zip(y).map(p => p._1 + p._2)
+    }
+
+    override def sub(x: Array[Int], y: Array[Int]): Array[Int] = {
+      x.zip(y).map(p => p._1 - p._2)
+    }
+
+    override def merge(x: Array[Int], y: Array[Int]): Array[Int] = {
+      x ++ y
+    }
+
+  }
+
+
+  case class Grade(kills: Int, deaths: Int) {
     def ++(that: Grade): Grade = {
       Grade(this.kills + that.kills, this.deaths + that.deaths)
     }
   }
 
-  case class Credit(report: Int, reported: Int) extends Stat
+  case class Credit(report: Int, reported: Int)
 
   case class KeyedGrade(player: String, grade: Grade, time: Long)
 

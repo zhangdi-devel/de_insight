@@ -16,66 +16,79 @@
 
 package org.dizhang.pubg
 
-import org.dizhang.pubg.Stat.{Credit, Grade}
+import org.dizhang.pubg.Stat.Counter
+import PlayerStates._
 
-class PlayerStates(windows: Int, windowSize: Int, start: Long) {
+/**
+  * element1 will be windowed
+  * windowSize unit is second
+  * */
 
-  var earliest: Long = start
+class PlayerStates(windows: Int,
+                   windowSize: Int,
+                   len1: Int,
+                   len2: Int)(implicit counter: Counter) {
 
-  var kills: Int = 0
-  var deaths: Int = 0
-  var report: Int = 0
-  var reported: Int = 0
+  var earliest: Long = 0L
+  var latest: Long = 0L
+  var lastIndex: Int = 0
 
-  private def zero(): Array[Array[Int]] = Array.fill(4)(Array.fill(windows)(0))
+  var current: Array[Int] = zero(len)
+  var history: Array[Array[Int]] = zero(windows, len)
 
-  var history: Array[Array[Int]] = zero()
+  def len = len1 + len2
+  def earliestIndex: Int = (lastIndex + windows + 1 - occupiedSize)%windows
+  def occupiedSize: Int = ((latest - earliest)/(windowSize * 1000) + 1).toInt
 
-  def addGrade(grade: Grade, time: Long): Unit = {
-    val idx: Int = ((time - earliest)/windowSize).toInt
-    if (idx >= 0 && idx < windows) {
-      history(0)(idx) += grade.kills
-      history(1)(idx) += grade.deaths
-      kills += grade.kills
-      deaths += grade.deaths
-    }
-  }
+  def emitElement(): Array[Int] = current
 
-  def addCredit(credit: Credit, time: Long): Unit = {
-    val idx: Int = ((time - earliest)/windowSize).toInt
-    if (idx >= 0 && idx < windows) {
-      history(2)(idx) += credit.report
-      history(3)(idx) += credit.reported
-      report += credit.report
-      reported += credit.reported
-    }
-  }
+  /**
+    * add element to history
+    * update the state
+    * */
+  def addElement(cnt: Array[Int],
+                 time: Long,
+                 first: Boolean): Unit = {
+    val enriched: Array[Int] =
+      if (first)
+        counter.merge(cnt, zero(len2))
+      else
+        counter.merge(zero(len1), cnt)
 
-  def rollHistory(steps: Int): Unit = {
-    require(steps > 0)
-    if (steps >= windows) {
-      history = zero()
-      kills = 0
-      deaths = 0
-      report = 0
-      reported = 0
-    } else {
-      val newHistory = zero()
-      (0 until windows).foreach{ idx =>
-        if (idx < steps) {
-          kills -= history(0)(idx)
-          deaths -= history(1)(idx)
-          report -= history(2)(idx)
-          reported -= history(3)(idx)
-        } else {
-          newHistory(0)(idx - steps) = history(0)(idx)
-          newHistory(1)(idx - steps) = history(1)(idx)
-          newHistory(2)(idx - steps) = history(2)(idx)
-          newHistory(3)(idx - steps) = history(3)(idx)
-        }
+    val rawIdx = ((time - earliest)/(windowSize * 1000)).toInt
+    val currentTime = time/(windowSize * 1000) * (windowSize * 1000)
+    if (rawIdx < occupiedSize + windows - 1) {
+      /** if fall in range or override part of old data */
+      for (i <- 0 to (rawIdx - occupiedSize)) {
+        val idx = (lastIndex + 1 + i)%windows
+        current = counter.sub(current, history(idx))
+        history(idx) = zero(len)
       }
-      history = newHistory
+      current = counter.add(current, enriched)
+      val idx = (earliestIndex + rawIdx)%windows
+      history(idx) = counter.add(history(idx), enriched)
+      latest = currentTime
+      earliest =
+        if (currentTime - (windowSize * (windows - 1) * 1000) <= earliest)
+          earliest
+        else
+          currentTime - (windowSize * (windows - 1) * 1000)
+      lastIndex = idx
+    } else {
+      /** throw away old data */
+      history = zero(windows, len)
+      history(0) = enriched.clone()
+      current = enriched
+      earliest = currentTime
+      latest = earliest
+      lastIndex = 0
     }
+
   }
 
+}
+
+object PlayerStates {
+  private def zero(size: Int): Array[Int] = Array.fill(size)(0)
+  private def zero(rows: Int, cols: Int): Array[Array[Int]] = Array.fill(rows)(Array.fill(cols)(0))
 }

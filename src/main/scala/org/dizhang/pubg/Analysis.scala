@@ -4,12 +4,14 @@ package org.dizhang.pubg
 import org.slf4j.{Logger, LoggerFactory}
 import java.util.Properties
 
+import org.apache.flink.api.common.serialization.SimpleStringSchema
 import org.apache.flink.streaming.api.windowing.time.Time
 import org.apache.flink.streaming.api.TimeCharacteristic
 import org.apache.flink.streaming.api.functions.timestamps.BoundedOutOfOrdernessTimestampExtractor
 import org.apache.flink.streaming.api.scala._
-import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer011
-import org.dizhang.pubg.Stat.{Credit, Grade, KeyedCredit, KeyedGrade}
+import org.apache.flink.streaming.connectors.kafka.{FlinkKafkaConsumer011, FlinkKafkaProducer011}
+import org.dizhang.pubg.Stat.KeyedCounter
+import org.dizhang.pubg.StatDescriber.{SimpleCredit, SimpleGrade}
 
 object Analysis {
 
@@ -32,35 +34,44 @@ object Analysis {
         val reports = new FlinkKafkaConsumer011[Report](conf.topic.reports, new ReportDeserializer(), props)
 
         /*match stream*/
+        val simpleGrade = new SimpleGrade
         val matchesStream = env.addSource(matches).flatMap{cur =>
-          val event = cur._1.event
-          //val game = cur._1.game
-
-          val time = cur._2
-            List(
-              KeyedGrade(event.victim.id, Grade(0,1), time),
-              KeyedGrade(event.killer.id, Grade(1,0), time)
-            )
+          simpleGrade.fromEvent(cur)
         }.assignTimestampsAndWatermarks(
-          new BoundedOutOfOrdernessTimestampExtractor[KeyedGrade](Time.seconds(conf.watermark)) {
-            override def extractTimestamp(element: KeyedGrade): Long = element.time
+          new BoundedOutOfOrdernessTimestampExtractor[KeyedCounter](Time.seconds(conf.watermark)) {
+            override def extractTimestamp(element: KeyedCounter): Long = element._2
           }
-        ).keyBy(_.player)
+        ).keyBy(_._1)
 
         /*report stream*/
+        val simpleCredit = new SimpleCredit
         val reportsStream = env.addSource(reports).flatMap{cur =>
-          List(
-            KeyedCredit(cur.reporter, Credit(1, 0), cur.time),
-            KeyedCredit(cur.cheater, Credit(0, 1), cur.time)
-          )
+          simpleCredit.fromEvent(cur)
         }.assignTimestampsAndWatermarks(
-          new BoundedOutOfOrdernessTimestampExtractor[KeyedCredit](Time.seconds(conf.watermark)) {
-            override def extractTimestamp(element: KeyedCredit): Long = element.time
-          }).keyBy(_.player)
+          new BoundedOutOfOrdernessTimestampExtractor[KeyedCounter](Time.seconds(conf.watermark)) {
+            override def extractTimestamp(element: KeyedCounter): Long = element._2
+          }
+        ).keyBy(_._1)
 
-        val result = reportsStream.connect(matchesStream).process(new JoinFunction())
+        val names = simpleGrade.names ++ simpleCredit.names
 
+        /** stateful joining */
+        val result = reportsStream.connect(matchesStream).flatMap(
+          new JoinFunction(conf.window, simpleGrade.size, simpleCredit.size)
+        ).map{r =>
+          val cnt = names.zip(r._3).map(p => s"${p._1}:${p._2}")
+          s"${r._1},${r._2},${cnt.mkString(",")}"
+        }
 
+        /* write back to kafka */
+        val producer = new FlinkKafkaProducer011[String](
+          conf.brokers.mkString(","),
+          "Stats",
+          new SimpleStringSchema()
+        )
+        result.addSink(producer)
+
+        env.execute("Analysis")
     }
   }
 }

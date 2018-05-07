@@ -16,15 +16,55 @@
 
 package org.dizhang.pubg
 import org.apache.flink.api.common.state.{ValueState, ValueStateDescriptor}
-import org.apache.flink.streaming.api.scala._
-import org.apache.flink.streaming.api.functions.co.CoProcessFunction
+import org.apache.flink.streaming.api.functions.co.RichCoFlatMapFunction
 import org.apache.flink.util.Collector
-import org.dizhang.pubg.Stat.{KeyedCredit, KeyedGrade, Merged}
+import org.dizhang.pubg.Stat.KeyedCounter
 
-class JoinFunction extends CoProcessFunction[KeyedCredit, KeyedGrade, Merged] {
-  override def processElement1(value: KeyedCredit,
-                               ctx: CoProcessFunction[KeyedCredit, KeyedGrade, Merged]#Context,
-                               out: Collector[Merged]): Unit = {
+class JoinFunction(window: Map[String, List[Int]], len1: Int, len2: Int)
+  extends RichCoFlatMapFunction[KeyedCounter, KeyedCounter, KeyedCounter] {
 
+  lazy val statsBuffer: ValueState[Map[String, PlayerStates]] = getRuntimeContext.getState(
+    new ValueStateDescriptor[Map[String, PlayerStates]]("saved stats", classOf[Map[String, PlayerStates]])
+  )
+
+  override def flatMap1(value: KeyedCounter, out: Collector[KeyedCounter]): Unit = {
+    val buffer = statsBuffer.value()
+    if (statsBuffer == null) {
+      val init = window.map{
+        case (windowName, windows :: windowSize :: _) =>
+          val ps = new PlayerStates(windows, windowSize, len1, len2)
+          ps.addElement(value._3, value._2, first = true)
+          out.collect((s"${value._1},$windowName", value._2, ps.emitElement()))
+          (windowName, ps)
+      }
+      statsBuffer.update(init)
+    } else {
+      buffer.foreach{
+        case (windowName, ps) =>
+          ps.addElement(value._3, value._2, first = true)
+          out.collect((s"${value._1},$windowName", value._2, ps.emitElement()))
+      }
+      statsBuffer.update(buffer)
+    }
   }
+
+  override def flatMap2(value: KeyedCounter, out: Collector[KeyedCounter]): Unit = {
+    val buffer = statsBuffer.value()
+    if (statsBuffer == null) {
+      val init = window.map{
+        case (windowName, windows :: windowSize :: _) =>
+          val ps = new PlayerStates(windows, windowSize, len1, len2)
+          ps.addElement(value._3, value._2, first = false)
+          (windowName, ps)
+      }
+      statsBuffer.update(init)
+    } else {
+      buffer.foreach{
+        case (_, ps) =>
+          ps.addElement(value._3, value._2, first = false)
+      }
+      statsBuffer.update(buffer)
+    }
+  }
+
 }

@@ -35,6 +35,7 @@ import scala.util.{Failure, Success, Try}
 case class UserConfig(group: String,
                       watermark: Int,
                       topic: Topic,
+                      window: Map[String, List[Int]],
                       brokers: List[String])
 
 object UserConfig {
