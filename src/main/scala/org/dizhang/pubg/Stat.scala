@@ -16,7 +16,7 @@
 
 package org.dizhang.pubg
 
-sealed trait Stat {
+sealed trait Stat extends Serializable {
   def zero: Array[Int]
   def add(x: Array[Int], y: Array[Int]): Array[Int]
   def merge(x: Array[Int], y: Array[Int]): Array[Int]

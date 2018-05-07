@@ -27,7 +27,8 @@ import PlayerStates._
 class PlayerStates(windows: Int,
                    windowSize: Int,
                    len1: Int,
-                   len2: Int)(implicit counter: Counter) {
+                   len2: Int)(implicit counter: Counter)
+  extends Serializable {
 
   var earliest: Long = 0L
   var latest: Long = 0L
