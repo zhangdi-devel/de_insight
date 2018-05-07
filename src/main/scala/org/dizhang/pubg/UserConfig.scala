@@ -49,10 +49,10 @@ object UserConfig {
       ConfigFactory.parseFile(path.toFile)
     } match {
       case Success(conf) =>
-        pureconfig.loadConfig[UserConfig](conf.withFallback(default))
+        pureconfig.loadConfig[UserConfig](conf.withFallback(default).resolve().getConfig("analysis"))
       case Failure(e) =>
         logger.warn(s"${e.toString}\n\tuse default config")
-        pureconfig.loadConfig[UserConfig](default)
+        pureconfig.loadConfig[UserConfig](default.getConfig("analysis"))
     }
   }
 
