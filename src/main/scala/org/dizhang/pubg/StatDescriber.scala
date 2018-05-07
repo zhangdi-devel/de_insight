@@ -19,7 +19,7 @@ package org.dizhang.pubg
   * Parse from event
   * and map counter names to indices
   * */
-sealed trait StatDescriber[A] {
+sealed trait StatDescriber[A] extends Serializable {
 
   def size: Int
 
