@@ -18,6 +18,8 @@ object Analysis {
   val logger: Logger = LoggerFactory.getLogger(getClass)
 
   def main(args: Array[String]): Unit = {
+
+    logger.info("hey flink")
     UserConfig(args) match {
       case Left(e) =>
         logger.error(s"$e failed to parse config, exit.")
@@ -70,7 +72,7 @@ object Analysis {
           new SimpleStringSchema()
         )
         result.addSink(producer)
-
+        result.print()
         env.execute("Analysis")
     }
   }

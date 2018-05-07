@@ -5,8 +5,8 @@ lazy val root = (project in file("."))
     commonSettings,
     assemblySettings,
     libraryDependencies ++= commonDependencies ++ Seq(
-      "org.apache.flink" %% "flink-scala" % "1.4.2" % "provided",
-      "org.apache.flink" %% "flink-streaming-scala" % "1.4.2" % "provided",
+      "org.apache.flink" %% "flink-scala" % "1.4.2",
+      "org.apache.flink" %% "flink-streaming-scala" % "1.4.2",
       "org.apache.flink" %% "flink-connector-kafka-0.11" % "1.4.2",
       "org.postgresql" % "postgresql" % "42.2.2"
     )
