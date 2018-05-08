@@ -5,7 +5,7 @@ import org.slf4j.{Logger, LoggerFactory}
 import java.util.Properties
 import java.util.concurrent.TimeUnit
 
-import org.apache.flink.api.common.functions.FlatMapFunction
+import org.apache.flink.api.common.functions.{FlatMapFunction, MapFunction}
 import org.apache.flink.api.common.serialization.SimpleStringSchema
 import org.apache.flink.streaming.api.TimeCharacteristic
 import org.apache.flink.streaming.api.functions.timestamps.BoundedOutOfOrdernessTimestampExtractor
@@ -85,9 +85,13 @@ object Analysis {
         val result = reportsStream.connect(matchesStream).flatMap(
           myJoinFunc
           //new JoinFunction(conf.window, simpleGrade.size, simpleCredit.size)
-        ).map{r =>
-          val cnt = names.zip(r._3).map(p => s"${p._1}:${p._2}")
-          s"${r._1},${r._2},${cnt.mkString(",")}"
+        ).map{
+          new MapFunction[KeyedCounter, String] {
+            override def map(r: (String, Long, Array[Int])): String = {
+              val cnt = names.zip(r._3).map(p => s"${p._1}:${p._2}")
+              s"${r._1},${r._2},${cnt.mkString(",")}"
+            }
+          }
         }
 
         /* write back to kafka */
