@@ -72,8 +72,10 @@ object Analysis {
         val names = simpleGrade.names ++ simpleCredit.names
 
         /** stateful joining */
+        val myJoinFunc = new JoinFunction(conf.window, simpleGrade.size, simpleCredit.size)
         val result = reportsStream.connect(matchesStream).flatMap(
-          new JoinFunction(conf.window, simpleGrade.size, simpleCredit.size)
+          myJoinFunc
+          //new JoinFunction(conf.window, simpleGrade.size, simpleCredit.size)
         ).map{r =>
           val cnt = names.zip(r._3).map(p => s"${p._1}:${p._2}")
           s"${r._1},${r._2},${cnt.mkString(",")}"
