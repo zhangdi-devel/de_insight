@@ -31,6 +31,24 @@ sealed trait StatDescriber[A] extends Serializable {
 
 object StatDescriber {
 
+
+  class Cnt2[A](namePair: (String, String),
+                keyFun: A => (String, String),
+                timeFun: A => Long) extends StatDescriber[A] {
+    def size = 2
+
+    val names = Array(namePair._1, namePair._2)
+
+    override def fromEvent(elem: A): List[(String, Long, Array[Int])] = {
+      List(
+        (keyFun(elem)._1, timeFun(elem), Array(1,0)),
+        (keyFun(elem)._2, timeFun(elem), Array(0,1))
+      )
+    }
+
+  }
+
+  /**
   class SimpleGrade extends StatDescriber[(Record, Long)] {
 
     def size = 2
@@ -61,5 +79,5 @@ object StatDescriber {
 
     override def names: Array[String] = Array("reports", "reported")
   }
-
+  */
 }

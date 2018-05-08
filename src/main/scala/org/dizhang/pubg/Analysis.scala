@@ -3,6 +3,7 @@ package org.dizhang.pubg
 
 import org.slf4j.{Logger, LoggerFactory}
 import java.util.Properties
+import java.util.concurrent.TimeUnit
 
 import org.apache.flink.api.common.serialization.SimpleStringSchema
 import org.apache.flink.streaming.api.windowing.time.Time
@@ -11,7 +12,7 @@ import org.apache.flink.streaming.api.functions.timestamps.BoundedOutOfOrderness
 import org.apache.flink.streaming.api.scala._
 import org.apache.flink.streaming.connectors.kafka.{FlinkKafkaConsumer011, FlinkKafkaProducer011}
 import org.dizhang.pubg.Stat.KeyedCounter
-import org.dizhang.pubg.StatDescriber.{SimpleCredit, SimpleGrade}
+import org.dizhang.pubg.StatDescriber.Cnt2
 
 object Analysis {
 
@@ -36,24 +37,37 @@ object Analysis {
         val reports = new FlinkKafkaConsumer011[Report](conf.topic.reports, new ReportDeserializer(), props)
 
         /*match stream*/
-        val simpleGrade = new SimpleGrade
+        val simpleGrade = new Cnt2[(Record, Long)](
+          ("kills", "deaths"), p => (p._1.event.killer.id, p._1.event.victim.id), p => p._2
+        )
         val matchesStream = env.addSource(matches).flatMap{cur =>
           simpleGrade.fromEvent(cur)
-        }.assignTimestampsAndWatermarks(
+        }.keyBy(_._1)
+
+        /**
+          *
+          .assignTimestampsAndWatermarks(
           new BoundedOutOfOrdernessTimestampExtractor[KeyedCounter](Time.seconds(conf.watermark)) {
             override def extractTimestamp(element: KeyedCounter): Long = element._2
           }
-        ).keyBy(_._1)
+        )
+          * */
 
         /*report stream*/
-        val simpleCredit = new SimpleCredit
+        val simpleCredit = new Cnt2[Report](
+          ("reports", "reported"), r => (r.reporter, r.cheater), r => r.time
+        )
         val reportsStream = env.addSource(reports).flatMap{cur =>
           simpleCredit.fromEvent(cur)
-        }.assignTimestampsAndWatermarks(
+        }.keyBy(_._1)
+
+        /**
+          * .assignTimestampsAndWatermarks(
           new BoundedOutOfOrdernessTimestampExtractor[KeyedCounter](Time.seconds(conf.watermark)) {
             override def extractTimestamp(element: KeyedCounter): Long = element._2
           }
-        ).keyBy(_._1)
+        )
+          */
 
         val names = simpleGrade.names ++ simpleCredit.names
 
@@ -73,7 +87,8 @@ object Analysis {
         )
         result.addSink(producer)
         result.print()
-        env.execute("Analysis")
+        val res = env.execute("Analysis")
+        logger.info(s"runtime: ${res.getNetRuntime(TimeUnit.MINUTES)}")
     }
   }
 }
