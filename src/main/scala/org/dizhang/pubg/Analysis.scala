@@ -5,12 +5,13 @@ import org.slf4j.{Logger, LoggerFactory}
 import java.util.Properties
 import java.util.concurrent.TimeUnit
 
+import org.apache.flink.api.common.functions.FlatMapFunction
 import org.apache.flink.api.common.serialization.SimpleStringSchema
-import org.apache.flink.streaming.api.windowing.time.Time
 import org.apache.flink.streaming.api.TimeCharacteristic
 import org.apache.flink.streaming.api.functions.timestamps.BoundedOutOfOrdernessTimestampExtractor
 import org.apache.flink.streaming.api.scala._
 import org.apache.flink.streaming.connectors.kafka.{FlinkKafkaConsumer011, FlinkKafkaProducer011}
+import org.apache.flink.util.Collector
 import org.dizhang.pubg.Stat.KeyedCounter
 import org.dizhang.pubg.StatDescriber.Cnt2
 
@@ -40,9 +41,13 @@ object Analysis {
         val simpleGrade = new Cnt2[(Record, Long)](
           ("kills", "deaths"), p => (p._1.event.killer.id, p._1.event.victim.id), p => p._2
         )
-        val matchesStream = env.addSource(matches).flatMap{cur =>
-          simpleGrade.fromEvent(cur)
-        }.keyBy(p => p._1)
+        val matchesStream = env.addSource(matches).flatMap{
+          new FlatMapFunction[(Record, Long), KeyedCounter] {
+            override def flatMap(value: (Record, Long), out: Collector[(String, Long, Array[Int])]): Unit = {
+              simpleGrade.fromEvent(value).foreach(r => out.collect(r))
+            }
+          }
+        }.keyBy(0)
 
         /**
           *
@@ -57,9 +62,13 @@ object Analysis {
         val simpleCredit = new Cnt2[Report](
           ("reports", "reported"), r => (r.reporter, r.cheater), r => r.time
         )
-        val reportsStream = env.addSource(reports).flatMap{cur =>
-          simpleCredit.fromEvent(cur)
-        }.keyBy(p => p._1)
+        val reportsStream = env.addSource(reports).flatMap{
+          new FlatMapFunction[Report, KeyedCounter] {
+            override def flatMap(value: Report, out: Collector[(String, Long, Array[Int])]): Unit = {
+              simpleCredit.fromEvent(value).foreach(r => out.collect(r))
+            }
+          }
+        }.keyBy(0)
 
         /**
           * .assignTimestampsAndWatermarks(
