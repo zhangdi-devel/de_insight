@@ -42,7 +42,7 @@ object Analysis {
         )
         val matchesStream = env.addSource(matches).flatMap{cur =>
           simpleGrade.fromEvent(cur)
-        }.keyBy(_._1)
+        }.keyBy(p => p._1)
 
         /**
           *
@@ -59,7 +59,7 @@ object Analysis {
         )
         val reportsStream = env.addSource(reports).flatMap{cur =>
           simpleCredit.fromEvent(cur)
-        }.keyBy(_._1)
+        }.keyBy(p => p._1)
 
         /**
           * .assignTimestampsAndWatermarks(
