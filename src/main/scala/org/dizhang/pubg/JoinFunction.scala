@@ -32,7 +32,7 @@ class JoinFunction(window: Map[String, List[Int]], len1: Int, len2: Int)
 
   override def flatMap1(value: KeyedCounter, out: Collector[KeyedCounter]): Unit = {
     val buffer = statsBuffer.value()
-    if (statsBuffer == null) {
+    if (buffer == null) {
       val init = window.flatMap{
         case (windowName, windows :: windowSize :: _) =>
           val ps = new PlayerStates(windows, windowSize, len1, len2)(counter1)
@@ -54,7 +54,7 @@ class JoinFunction(window: Map[String, List[Int]], len1: Int, len2: Int)
 
   override def flatMap2(value: KeyedCounter, out: Collector[KeyedCounter]): Unit = {
     val buffer = statsBuffer.value()
-    if (statsBuffer == null) {
+    if (buffer == null) {
       val init = window.flatMap{
         case (windowName, windows :: windowSize :: _) =>
           val ps = new PlayerStates(windows, windowSize, len1, len2)(counter2)

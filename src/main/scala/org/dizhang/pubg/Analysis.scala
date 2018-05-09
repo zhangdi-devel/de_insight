@@ -42,6 +42,43 @@ object Analysis {
           ("kills", "deaths"), p => (p._1.event.killer.id, p._1.event.victim.id), p => p._2
         )
         val matchesStream = env.addSource(matches).flatMap{
+          r => simpleGrade.fromEvent(r)
+        }.keyBy(_._1)
+
+        /*report stream*/
+        val simpleCredit = new Cnt2[Report](
+          ("reports", "reported"), r => (r.reporter, r.cheater), r => r.time
+        )
+        val reportsStream = env.addSource(reports).flatMap{
+          r => simpleCredit.fromEvent(r)
+        }.keyBy(_._1)
+
+        val names = simpleGrade.names ++ simpleCredit.names
+
+        /** stateful joining */
+        val myJoinFunc = new JoinFunction(conf.window, simpleGrade.size, simpleCredit.size)
+        val result = reportsStream.connect(matchesStream).flatMap(
+          myJoinFunc
+          //new JoinFunction(conf.window, simpleGrade.size, simpleCredit.size)
+        ).map{
+          new MapFunction[KeyedCounter, String] {
+            override def map(r: (String, Long, Array[Int])): String = {
+              val cnt = names.zip(r._3).map(p => s"${p._1}:${p._2}")
+              s"${r._1},${r._2},${cnt.mkString(",")}"
+            }
+          }
+        }
+
+        result.writeAsText("test.csv")
+
+        env.execute()
+
+        /**
+        /*match stream*/
+        val simpleGrade = new Cnt2[(Record, Long)](
+          ("kills", "deaths"), p => (p._1.event.killer.id, p._1.event.victim.id), p => p._2
+        )
+        val matchesStream = env.addSource(matches).flatMap{
           new FlatMapFunction[(Record, Long), KeyedCounter] {
             override def flatMap(value: (Record, Long), out: Collector[(String, Long, Array[Int])]): Unit = {
               simpleGrade.fromEvent(value).foreach(r => out.collect(r))
@@ -104,6 +141,7 @@ object Analysis {
         result.print()
         val res = env.execute("Analysis")
         logger.info(s"runtime: ${res.getNetRuntime(TimeUnit.MINUTES)}")
+          */
     }
   }
 }

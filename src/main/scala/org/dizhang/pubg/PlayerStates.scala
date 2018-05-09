@@ -50,41 +50,42 @@ class PlayerStates(windows: Int,
   def addElement(cnt: Array[Int],
                  time: Long,
                  first: Boolean): Unit = {
-    val enriched: Array[Int] =
-      if (first)
-        counter.merge(cnt, zero(len2))
-      else
-        counter.merge(zero(len1), cnt)
-
-    val rawIdx = ((time - earliest)/(windowSize * 1000)).toInt
-    val currentTime = time/(windowSize * 1000) * (windowSize * 1000)
-    if (rawIdx < occupiedSize + windows - 1) {
-      /** if fall in range or override part of old data */
-      for (i <- 0 to (rawIdx - occupiedSize)) {
-        val idx = (lastIndex + 1 + i)%windows
-        current = counter.sub(current, history(idx))
-        history(idx) = zero(len)
-      }
-      current = counter.add(current, enriched)
-      val idx = (earliestIndex + rawIdx)%windows
-      history(idx) = counter.add(history(idx), enriched)
-      latest = currentTime
-      earliest =
-        if (currentTime - (windowSize * (windows - 1) * 1000) <= earliest)
-          earliest
+    if (time >= earliest) {
+      val enriched: Array[Int] =
+        if (first)
+          counter.merge(cnt, zero(len2))
         else
-          currentTime - (windowSize * (windows - 1) * 1000)
-      lastIndex = idx
-    } else {
-      /** throw away old data */
-      history = zero(windows, len)
-      history(0) = enriched.clone()
-      current = enriched
-      earliest = currentTime
-      latest = earliest
-      lastIndex = 0
-    }
+          counter.merge(zero(len1), cnt)
 
+      val rawIdx = ((time - earliest)/(windowSize * 1000)).toInt
+      val currentTime = time/(windowSize * 1000) * (windowSize * 1000)
+      if (rawIdx < occupiedSize + windows - 1) {
+        /** if fall in range or override part of old data */
+        for (i <- 0 to (rawIdx - occupiedSize)) {
+          val idx = (lastIndex + 1 + i)%windows
+          current = counter.sub(current, history(idx))
+          history(idx) = zero(len)
+        }
+        current = counter.add(current, enriched)
+        val idx = (earliestIndex + rawIdx)%windows
+        history(idx) = counter.add(history(idx), enriched)
+        latest = currentTime
+        earliest =
+          if (currentTime - (windowSize * (windows - 1) * 1000) <= earliest)
+            earliest
+          else
+            currentTime - (windowSize * (windows - 1) * 1000)
+        lastIndex = idx
+      } else {
+        /** throw away old data */
+        history = zero(windows, len)
+        history(0) = enriched.clone()
+        current = enriched
+        earliest = currentTime
+        latest = earliest
+        lastIndex = 0
+      }
+    }
   }
 
 }
