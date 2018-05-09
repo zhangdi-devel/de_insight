@@ -19,7 +19,11 @@ package org.dizhang.pubg
 case class Report(reporter: String,
                   cheater: String,
                   matchId: String,
-                  time: Long)
+                  time: Long) {
+  override def toString: String = {
+    s"$reporter,$cheater,$matchId,$time"
+  }
+}
 
 object Report {
 
