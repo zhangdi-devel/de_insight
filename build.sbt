@@ -79,6 +79,7 @@ lazy val commonDependencies = Seq(
 
 lazy val assemblySettings = Seq(
   test in assembly := {},
+  assemblyOption in assembly := (assemblyOption in assembly).value.copy(includeScala = false),
   assemblyMergeStrategy in assembly := {
     case PathList("META-INF", xs @ _*) => MergeStrategy.discard
     case _                             => MergeStrategy.first

@@ -17,7 +17,7 @@
 package org.dizhang.pubg
 import java.nio.charset.StandardCharsets
 
-import org.apache.flink.api.common.serialization.AbstractDeserializationSchema
+import org.apache.flink.api.common.serialization.{AbstractDeserializationSchema, DeserializationSchema, SerializationSchema}
 class RecordDeserializer extends AbstractDeserializationSchema[(Record, Long)] {
   def deserialize(message: Array[Byte]): (Record, Long) = {
     val tmp = new java.lang.String(message, StandardCharsets.UTF_8)
