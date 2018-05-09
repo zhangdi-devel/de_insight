@@ -33,7 +33,7 @@ object Analysis {
         props.setProperty("auto.offset.reset", conf.topic.offset)
 
         val env = StreamExecutionEnvironment.getExecutionEnvironment
-        env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime )
+        env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime)
         val matches = new FlinkKafkaConsumer011[(Record, Long)](conf.topic.matches, new RecordDeserializer(), props)
         val reports = new FlinkKafkaConsumer011[Report](conf.topic.reports, new ReportDeserializer(), props)
 

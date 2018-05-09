@@ -132,7 +132,7 @@ object Simulation {
 
       /* prepare the match event keyed by matchId */
       val matchData = new ProducerRecord[String, String](
-        topic.matches, partition, eventTime, matchId, record.toString
+        topic.matches, partition, eventTime, matchId, s"$record,$eventTime"
       )
       producer.send(matchData)
 
@@ -142,7 +142,7 @@ object Simulation {
       while (unHappened.nonEmpty && unHappened.head.time <= eventTime) {
         val report = unHappened.dequeue()
         val reportData = new ProducerRecord[String, String](
-          topic.reports, partition, report.time, report.matchId, s"$record,$eventTime"
+          topic.reports, partition, report.time, report.matchId, report.toString
         )
         producer.send(reportData)
       }
