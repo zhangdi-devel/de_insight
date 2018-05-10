@@ -15,7 +15,7 @@
  */
 
 package org.dizhang.pubg
-import org.apache.flink.api.common.state.{ValueState, ValueStateDescriptor}
+import org.apache.flink.api.common.state.{MapState, MapStateDescriptor, ValueState, ValueStateDescriptor}
 import org.apache.flink.streaming.api.functions.co.RichCoFlatMapFunction
 import org.apache.flink.util.Collector
 import org.dizhang.pubg.Stat.KeyedCounter
@@ -31,11 +31,12 @@ class JoinFunction(window: Map[String, List[Int]], len1: Int, len2: Int)
   val counter2 = new Stat.Counter(len2)
 
   override def flatMap1(value: KeyedCounter, out: Collector[KeyedCounter]): Unit = {
+    /** add elements but don't emit results */
     val buffer = statsBuffer.value()
     if (buffer == null) {
       val init = window.flatMap{
         case (windowName, windows :: windowSize :: _) =>
-          val ps = new PlayerStates(windows, windowSize, len1, len2)(counter1)
+          val ps = new PlayerStates(windows, windowSize, len1, len2)(counter2)
           ps.addElement(value._3, value._2, first = true)
           out.collect((s"${value._1},$windowName", value._2, ps.emitElement()))
           Some((windowName, ps))
@@ -53,23 +54,27 @@ class JoinFunction(window: Map[String, List[Int]], len1: Int, len2: Int)
   }
 
   override def flatMap2(value: KeyedCounter, out: Collector[KeyedCounter]): Unit = {
+    /** add elements and emit results */
     val buffer = statsBuffer.value()
     if (buffer == null) {
       val init = window.flatMap{
         case (windowName, windows :: windowSize :: _) =>
-          val ps = new PlayerStates(windows, windowSize, len1, len2)(counter2)
+          val ps = new PlayerStates(windows, windowSize, len1, len2)(counter1)
           ps.addElement(value._3, value._2, first = false)
+          out.collect((s"${value._1},$windowName", value._2, ps.emitElement()))
           Some((windowName, ps))
         case _ => None
       }
       statsBuffer.update(init)
     } else {
       buffer.foreach{
-        case (_, ps) =>
+        case (windowName, ps) =>
           ps.addElement(value._3, value._2, first = false)
+          out.collect((s"${value._1},$windowName", value._2, ps.emitElement()))
       }
       statsBuffer.update(buffer)
     }
   }
+
 
 }

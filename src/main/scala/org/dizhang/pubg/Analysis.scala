@@ -2,7 +2,7 @@ package org.dizhang.pubg
 
 
 import org.slf4j.{Logger, LoggerFactory}
-import java.util.Properties
+import java.util.{Properties, UUID}
 import java.util.concurrent.TimeUnit
 
 import org.apache.flink.api.common.functions.{FlatMapFunction, MapFunction}
@@ -29,7 +29,7 @@ object Analysis {
       case Right(conf) =>
         val props = new Properties()
         props.setProperty("bootstrap.servers", conf.brokers.mkString(","))
-        props.setProperty("group.id", conf.group)
+        props.setProperty("group.id", s"${conf.group}.${UUID.randomUUID()}")
         props.setProperty("auto.offset.reset", conf.topic.offset)
 
         val env = StreamExecutionEnvironment.getExecutionEnvironment
@@ -56,22 +56,37 @@ object Analysis {
         val names = simpleGrade.names ++ simpleCredit.names
 
         /** stateful joining */
+        val lateEvent = OutputTag[KeyedCounter]("lateEvents")
+
+        val myJoinFunc2 = new JoinFunction2(conf.window, simpleGrade.size, simpleCredit.size, lateEvent)
+
+        val streams = matchesStream.connect(reportsStream).process(myJoinFunc2).map{r =>
+            val cnt = names.zip(r._3).map(p => s"${p._1}:${p._2}")
+            s"${r._1},${r._2},${cnt.mkString(",")}"
+        }
+        /**
         val myJoinFunc = new JoinFunction(conf.window, simpleGrade.size, simpleCredit.size)
-        val result = reportsStream.connect(matchesStream).flatMap(
+        val result = matchesStream.connect(reportsStream).flatMap(
           myJoinFunc
-          //new JoinFunction(conf.window, simpleGrade.size, simpleCredit.size)
-        ).map{
-          new MapFunction[KeyedCounter, String] {
-            override def map(r: (String, Long, Array[Int])): String = {
-              val cnt = names.zip(r._3).map(p => s"${p._1}:${p._2}")
-              s"${r._1},${r._2},${cnt.mkString(",")}"
-            }
-          }
+        ).map{r =>
+          val cnt = names.zip(r._3).map(p => s"${p._1}:${p._2}")
+          s"${r._1},${r._2},${cnt.mkString(",")}"
         }
 
-        result.writeAsText("test.csv")
+        result.print()
 
-        env.execute()
+        result.writeAsText("test.csv")
+        */
+
+        streams.print()
+
+        streams.writeAsText("test.csv")
+
+        streams.getSideOutput(lateEvent).writeAsText("late.csv")
+
+        val res = env.execute()
+
+        logger.info(s"${res.getNetRuntime(TimeUnit.SECONDS)} seconds")
 
         /**
         /*match stream*/

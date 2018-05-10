@@ -16,6 +16,8 @@
 
 package org.dizhang.pubg
 
+
+import java.util.Date
 import org.dizhang.pubg.Stat.Counter
 import PlayerStates._
 
@@ -51,6 +53,7 @@ class PlayerStates(windows: Int,
                  time: Long,
                  first: Boolean): Unit = {
     if (time >= earliest) {
+      /** data to be inserted */
       val enriched: Array[Int] =
         if (first)
           counter.merge(cnt, zero(len2))
@@ -80,12 +83,27 @@ class PlayerStates(windows: Int,
         /** throw away old data */
         history = zero(windows, len)
         history(0) = enriched.clone()
-        current = enriched
+        current = enriched.clone()
         earliest = currentTime
         latest = earliest
         lastIndex = 0
       }
     }
+  }
+
+  def pprint(): String = {
+    s"""
+       |windows: $windows
+       |windowSize: $windowSize
+       |earliest: ${new Date(earliest)}
+       |latest: ${new Date(latest)}
+       |earliestIndex: ${earliestIndex}
+       |lastIndex: $lastIndex
+       |occupiedSize: $occupiedSize
+       |current: ${current.mkString(",")}
+       |history:
+       |${history.zipWithIndex.map{case (r, i) => s"\t$i: ${r.mkString(",")}"}.mkString("\n")}
+       |""".stripMargin
   }
 
 }

@@ -11,7 +11,7 @@ lazy val root = (project in file("."))
       "org.apache.flink" %% "flink-connector-kafka-0.11" % "1.4.0",
       "org.postgresql" % "postgresql" % "42.2.2"
     )
-  ).dependsOn(utils)
+  ).dependsOn(utils % "test->test;compile->compile")
 
 lazy val utils = (project in file("utils"))
 	.settings(
