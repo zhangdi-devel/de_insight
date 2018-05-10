@@ -82,7 +82,13 @@ object Analysis {
 
         //streams.print()
 
-        streams.writeAsText("test.csv")
+        val producer = new FlinkKafkaProducer011[String](
+          conf.brokers.mkString(","),
+          "Stats",
+          new SimpleStringSchema()
+        )
+        streams.addSink(producer)
+        //streams.writeAsText("test.csv")
 
         //streams.getSideOutput(lateEvent).writeAsText("late.csv")
         //env.setParallelism(1)
