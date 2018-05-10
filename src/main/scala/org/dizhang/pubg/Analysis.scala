@@ -56,16 +56,18 @@ object Analysis {
         val names = simpleGrade.names ++ simpleCredit.names
 
         /** stateful joining */
-        val lateEvent = OutputTag[KeyedCounter]("lateEvents")
-
-        val myJoinFunc2 = new JoinFunction2(conf.window, simpleGrade.size, simpleCredit.size, lateEvent)
-
-        val streams = matchesStream.connect(reportsStream).process(myJoinFunc2).map{r =>
+        //val lateEvent = OutputTag[KeyedCounter]("lateEvents")
+        val myJoinFunc = new JoinFunction(conf.window, simpleGrade.size, simpleCredit.size)
+        val myJoinFunc2 = new JoinFunction2(conf.window, simpleGrade.size, simpleCredit.size)
+        val myJoinFunc3 = new JoinFunction3(conf.window, simpleGrade.size, simpleCredit.size)
+        val streams = matchesStream.connect(reportsStream).flatMap(
+          myJoinFunc3
+        ).map{r =>
             val cnt = names.zip(r._3).map(p => s"${p._1}:${p._2}")
             s"${r._1},${r._2},${cnt.mkString(",")}"
         }
         /**
-        val myJoinFunc = new JoinFunction(conf.window, simpleGrade.size, simpleCredit.size)
+
         val result = matchesStream.connect(reportsStream).flatMap(
           myJoinFunc
         ).map{r =>
@@ -78,12 +80,12 @@ object Analysis {
         result.writeAsText("test.csv")
         */
 
-        streams.print()
+        //streams.print()
 
         streams.writeAsText("test.csv")
 
-        streams.getSideOutput(lateEvent).writeAsText("late.csv")
-
+        //streams.getSideOutput(lateEvent).writeAsText("late.csv")
+        //env.setParallelism(1)
         val res = env.execute()
 
         logger.info(s"${res.getNetRuntime(TimeUnit.SECONDS)} seconds")

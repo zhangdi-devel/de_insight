@@ -17,9 +17,12 @@
 package org.dizhang.pubg
 
 
+import java.time.ZoneId
 import java.util.Date
+
 import org.dizhang.pubg.Stat.Counter
 import PlayerStates._
+import org.slf4j.{Logger, LoggerFactory}
 
 /**
   * element1 will be windowed
@@ -29,8 +32,12 @@ import PlayerStates._
 class PlayerStates(windows: Int,
                    windowSize: Int,
                    len1: Int,
-                   len2: Int)(implicit counter: Counter)
+                   len2: Int)
   extends Serializable {
+
+  val logger: Logger = LoggerFactory.getLogger(getClass)
+
+  var fakeWaterMark: Long = 0L
 
   var earliest: Long = 0L
   var latest: Long = 0L
@@ -38,6 +45,8 @@ class PlayerStates(windows: Int,
 
   var current: Array[Int] = zero(len)
   var history: Array[Array[Int]] = zero(windows, len)
+
+  val counter: Counter = new Counter(len)
 
   def len = len1 + len2
   def earliestIndex: Int = (lastIndex + windows + 1 - occupiedSize)%windows
@@ -53,15 +62,19 @@ class PlayerStates(windows: Int,
                  time: Long,
                  first: Boolean): Unit = {
     if (time >= earliest) {
+      fakeWaterMark = math.max(fakeWaterMark, time)
+      logger.debug(s"time: ${time.utc}, earliest: ${earliest.utc}")
       /** data to be inserted */
       val enriched: Array[Int] =
         if (first)
-          counter.merge(cnt, zero(len2))
+          cnt ++ zero(len2)
         else
-          counter.merge(zero(len1), cnt)
+          zero(len1) ++ cnt
 
       val rawIdx = ((time - earliest)/(windowSize * 1000)).toInt
+      logger.debug(s"rawIdx: $rawIdx, occupiedSize: $occupiedSize, windows: $windows")
       val currentTime = time/(windowSize * 1000) * (windowSize * 1000)
+      logger.debug(s"currentTime (slot): $currentTime ${currentTime.utc}")
       if (rawIdx < occupiedSize + windows - 1) {
         /** if fall in range or override part of old data */
         for (i <- 0 to (rawIdx - occupiedSize)) {
@@ -71,14 +84,14 @@ class PlayerStates(windows: Int,
         }
         current = counter.add(current, enriched)
         val idx = (earliestIndex + rawIdx)%windows
+        logger.debug(s"idx: $idx")
         history(idx) = counter.add(history(idx), enriched)
-        latest = currentTime
-        earliest =
-          if (currentTime - (windowSize * (windows - 1) * 1000) <= earliest)
-            earliest
-          else
-            currentTime - (windowSize * (windows - 1) * 1000)
-        lastIndex = idx
+        logger.debug(s"overlap idx?: ${currentTime - (windowSize.toLong * (windows - 1) * 1000)}")
+        earliest = math.max(earliest, currentTime - (windowSize.toLong * (windows - 1) * 1000))
+        if (currentTime > latest) {
+          latest = currentTime
+          lastIndex = idx
+        }
       } else {
         /** throw away old data */
         history = zero(windows, len)
@@ -88,6 +101,8 @@ class PlayerStates(windows: Int,
         latest = earliest
         lastIndex = 0
       }
+    } else {
+      logger.debug(s"time ${time.utc} < ${earliest.utc}")
     }
   }
 
@@ -111,4 +126,9 @@ class PlayerStates(windows: Int,
 object PlayerStates {
   private def zero(size: Int): Array[Int] = Array.fill(size)(0)
   private def zero(rows: Int, cols: Int): Array[Array[Int]] = Array.fill(rows)(Array.fill(cols)(0))
+
+  implicit class utctime(val time: Long) extends AnyVal {
+    def utc = new Date(time).toInstant.atZone(ZoneId.of("UTC")).toString
+  }
+
 }

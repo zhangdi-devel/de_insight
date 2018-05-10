@@ -27,8 +27,8 @@ import org.apache.flink.util.Collector
 import scala.collection.mutable
 
 class JoinFunction2(window: Map[String, List[Int]],
-                    len1: Int, len2: Int,
-                    lateEvent: OutputTag[KeyedCounter])
+                    len1: Int, len2: Int)
+                    //lateEvent: OutputTag[KeyedCounter])
   extends CoProcessFunction[KeyedCounter, KeyedCounter, KeyedCounter] {
 
   val windowNames = window.keys.toArray
@@ -141,9 +141,9 @@ class JoinFunction2(window: Map[String, List[Int]],
       for (i <- 0 to (rawIdx - occupiedSize(w))) {
         val idx = (lastIndex(w) + 1 + i)%windows(w)
         currentState.put(w,
-          counter.sub(currentState.get(w), historyState.get(s"$w-$idx"))
+          counter.sub(currentState.get(w), historyState.get(idx.in(w)))
         )
-        historyState.put(s"$w-$idx", zero(len))
+        historyState.put(idx.in(w), zero(len))
       }
       currentState.put(w,
         counter.add(
@@ -186,7 +186,7 @@ class JoinFunction2(window: Map[String, List[Int]],
       windowNames.foreach{w =>
         if (credit._2 < earliest(w)) {
           /** waited too long */
-          ctx.output(lateEvent, (s"${credit._1},$w", credit._2, zero(len1) ++ credit._3))
+          //ctx.output(lateEvent, (s"${credit._1},$w", credit._2, zero(len1) ++ credit._3))
         } else if (credit._2 >= earliest(w) && credit._2 < latest) {
           /** put it to history and emit */
           addElement(w, credit._3, credit._2, first = false)
@@ -200,7 +200,7 @@ class JoinFunction2(window: Map[String, List[Int]],
     windowNames.foreach{w =>
       if (time < earliest(w)) {
         /** output late event to side output */
-        ctx.output(lateEvent, (s"${value._1},$w", time, cnt ++ zero(len2)))
+        //ctx.output(lateEvent, (s"${value._1},$w", time, cnt ++ zero(len2)))
       } else {
         addElement(w, cnt, time, first = true)
       }
@@ -221,7 +221,7 @@ class JoinFunction2(window: Map[String, List[Int]],
 
     windowNames.foreach{w =>
       if (time < earliest(w)) {
-        ctx.output(lateEvent, (value._1, time, zero(len1) ++ cnt))
+        //ctx.output(lateEvent, (value._1, time, zero(len1) ++ cnt))
       } else if (time < latest) {
         addElement(w, cnt, time, first = false)
         out.collect((s"${value._1},$w", time, emit(w)))
@@ -239,4 +239,15 @@ object JoinFunction2 {
   val LATEST = "latest"
   val LAST_INDEX = "lastIndex"
 
+  implicit class index(val idx: Int) extends AnyVal {
+    def in(window: String): String = {
+      s"$window-$idx"
+    }
+  }
+
+  implicit class field(val first: String) extends AnyVal {
+    def comb(second: String): String = {
+      s"$first,$second"
+    }
+  }
 }

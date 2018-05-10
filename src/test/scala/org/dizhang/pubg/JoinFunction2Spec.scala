@@ -30,6 +30,6 @@ class JoinFunction2Spec extends BaseSpec {
 
   val env = StreamExecutionEnvironment.getExecutionEnvironment
 
-  val jf2 = new JoinFunction2(window, 2, 2, OutputTag[KeyedCounter]("haha"))
+  val jf2 = new JoinFunction2(window, 2, 2)
 
 }

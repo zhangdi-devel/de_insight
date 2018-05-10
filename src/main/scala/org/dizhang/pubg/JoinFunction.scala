@@ -27,8 +27,9 @@ class JoinFunction(window: Map[String, List[Int]], len1: Int, len2: Int)
     new ValueStateDescriptor[Map[String, PlayerStates]]("saved stats", classOf[Map[String, PlayerStates]])
   )
 
-  val counter1 = new Stat.Counter(len1)
-  val counter2 = new Stat.Counter(len2)
+  lazy val stateBuffer: MapState[String, PlayerStates] = getRuntimeContext.getMapState(
+    new MapStateDescriptor[String, PlayerStates]("map states", classOf[String], classOf[PlayerStates])
+  )
 
   override def flatMap1(value: KeyedCounter, out: Collector[KeyedCounter]): Unit = {
     /** add elements but don't emit results */
@@ -36,7 +37,7 @@ class JoinFunction(window: Map[String, List[Int]], len1: Int, len2: Int)
     if (buffer == null) {
       val init = window.flatMap{
         case (windowName, windows :: windowSize :: _) =>
-          val ps = new PlayerStates(windows, windowSize, len1, len2)(counter2)
+          val ps = new PlayerStates(windows, windowSize, len1, len2)
           ps.addElement(value._3, value._2, first = true)
           out.collect((s"${value._1},$windowName", value._2, ps.emitElement()))
           Some((windowName, ps))
@@ -44,12 +45,14 @@ class JoinFunction(window: Map[String, List[Int]], len1: Int, len2: Int)
       }
       statsBuffer.update(init)
     } else {
-      buffer.foreach{
+      val res =
+      buffer.map{
         case (windowName, ps) =>
           ps.addElement(value._3, value._2, first = true)
-          out.collect((s"${value._1},$windowName", value._2, ps.emitElement()))
+          (s"${value._1},$windowName", value._2, ps.emitElement())
       }
-      statsBuffer.update(buffer)
+      res.foreach(r => out.collect(r))
+      //statsBuffer.update(buffer)
     }
   }
 
@@ -59,7 +62,7 @@ class JoinFunction(window: Map[String, List[Int]], len1: Int, len2: Int)
     if (buffer == null) {
       val init = window.flatMap{
         case (windowName, windows :: windowSize :: _) =>
-          val ps = new PlayerStates(windows, windowSize, len1, len2)(counter1)
+          val ps = new PlayerStates(windows, windowSize, len1, len2)
           ps.addElement(value._3, value._2, first = false)
           out.collect((s"${value._1},$windowName", value._2, ps.emitElement()))
           Some((windowName, ps))
@@ -67,12 +70,14 @@ class JoinFunction(window: Map[String, List[Int]], len1: Int, len2: Int)
       }
       statsBuffer.update(init)
     } else {
-      buffer.foreach{
+      val res =
+      buffer.map{
         case (windowName, ps) =>
           ps.addElement(value._3, value._2, first = false)
-          out.collect((s"${value._1},$windowName", value._2, ps.emitElement()))
+          (s"${value._1},$windowName", value._2, ps.emitElement())
       }
-      statsBuffer.update(buffer)
+      res.foreach(r => out.collect(r))
+      //statsBuffer.update(buffer)
     }
   }
 
