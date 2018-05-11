@@ -25,6 +25,7 @@
 package org.dizhang.pubg
 
 import java.sql.{Connection, DriverManager, PreparedStatement}
+import java.time.{Instant, LocalDateTime, ZoneId}
 
 import org.apache.flink.configuration.Configuration
 import org.apache.flink.streaming.api.functions.sink.RichSinkFunction
@@ -53,7 +54,8 @@ class PostgresSink(postConf: Postgres)
     sr.foreach{value =>
       statement.setString(0, value.player)
       statement.setString(1, value.period)
-      statement.setLong(2, value.time)
+      val ldt = LocalDateTime.ofInstant(Instant.ofEpochMilli(value.time), ZoneId.of("UTC"))
+      statement.setObject(2, ldt)
       statement.setInt(3, value.kills)
       statement.setInt(4, value.deaths)
       statement.setInt(5, value.reports)
@@ -80,7 +82,7 @@ class PostgresSink(postConf: Postgres)
 
 
   override def open(parameters: Configuration): Unit = {
-    Class.forName("org.postgresql.Driver")
+    //Class.forName("org.postgresql.Driver")
     val url = s"jdbc:postgresql://${postConf.host}:${postConf.port}/${postConf.db}"
     val connection: Connection =
       DriverManager.getConnection(url, postConf.user, postConf.passwd)
@@ -96,8 +98,8 @@ object PostgresSink {
   private val MAX_BATCH = 1000
   private val MAX_INTERVAL = 1000
 
-  private val UPSERT_RESULT = "INSERT INTO stats (player, period, time, kills, deaths, reports, reported, tag) " +
-    "VALUES (?, ?, ?, ?, ?, ?, ?, ?) " +
+  private val UPSERT_RESULT = "INSERT INTO pubg (player, period, time, kills, deaths, reports, reported, tag) " +
+    "VALUES (?, CAST(? AS interval), ?, ?, ?, ?, ?, CAST(? AS circle)) " +
     "ON CONFLICT (playerPeriod) " +
     s"UPDATE SET time = $excluded.time, kills = $excluded.kills, deaths = $excluded.deaths, " +
     s"reports = $excluded.reports, reported = $excluded.reported, tag = $excluded.tag " +
