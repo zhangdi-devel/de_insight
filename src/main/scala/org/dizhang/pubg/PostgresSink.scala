@@ -100,7 +100,7 @@ object PostgresSink {
 
   private val UPSERT_RESULT = "INSERT INTO pubg (player, period, time, kills, deaths, reports, reported, tag) " +
     "VALUES (?, CAST(? AS interval), ?, ?, ?, ?, ?, CAST(? AS circle)) " +
-    "ON CONFLICT (playerPeriod) " +
+    "ON CONFLICT (player_period) " +
     s"DO UPDATE SET time = $excluded.time, kills = $excluded.kills, deaths = $excluded.deaths, " +
     s"reports = $excluded.reports, reported = $excluded.reported, tag = $excluded.tag " +
     s"WHERE stats.time < $excluded.time"
