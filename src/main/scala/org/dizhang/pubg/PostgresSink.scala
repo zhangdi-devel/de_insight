@@ -99,10 +99,10 @@ object PostgresSink {
   private val MAX_INTERVAL = 1000
 
   private val UPSERT_RESULT = "INSERT INTO pubg (player, period, time, kills, deaths, reports, reported, tag) " +
-    "VALUES (?, CAST(? AS interval), ?, ?, ?, ?, ?, CAST(? AS circle)) " +
+    "VALUES ( ?, CAST(? AS my_period), ?, ?, ?, ?, ?, CAST(? AS my_tag) ) " +
     "ON CONFLICT ON CONSTRAINT player_period " +
     s"DO UPDATE SET time = $excluded.time, kills = $excluded.kills, deaths = $excluded.deaths, " +
     s"reports = $excluded.reports, reported = $excluded.reported, tag = $excluded.tag " +
-    s"WHERE stats.time < $excluded.time"
+    s"WHERE pubg.time < $excluded.time"
 
 }
