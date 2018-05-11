@@ -52,19 +52,19 @@ class PostgresSink(postConf: Postgres)
   override def invoke(line: String): Unit = {
     val sr = SimpleResult(line)
     sr.foreach{value =>
-      statement.setString(0, value.player)
-      statement.setString(1, value.period)
+      statement.setString(1, value.player)
+      statement.setString(2, value.period)
       val ldt = LocalDateTime.ofInstant(Instant.ofEpochMilli(value.time), ZoneId.of("UTC"))
-      statement.setObject(2, ldt)
-      statement.setInt(3, value.kills)
-      statement.setInt(4, value.deaths)
-      statement.setInt(5, value.reports)
-      statement.setInt(6, value.reported)
-      statement.setString(7, value.tag)
+      statement.setObject(3, ldt)
+      statement.setInt(4, value.kills)
+      statement.setInt(5, value.deaths)
+      statement.setInt(6, value.reports)
+      statement.setInt(7, value.reported)
+      statement.setString(8, value.tag)
       statement.addBatch()
       batchCount += 1
 
-      onProcessingTime(System.currentTimeMillis() + 1000)
+      onProcessingTime(System.currentTimeMillis() + MAX_INTERVAL)
 
       if (shouldExecuteBatch()) {
         statement.executeBatch()
