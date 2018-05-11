@@ -82,7 +82,7 @@ class PostgresSink(postConf: Postgres)
 
 
   override def open(parameters: Configuration): Unit = {
-    //Class.forName("org.postgresql.Driver")
+    Class.forName("org.postgresql.Driver")
     val url = s"jdbc:postgresql://${postConf.host}:${postConf.port}/${postConf.db}"
     val connection: Connection =
       DriverManager.getConnection(url, postConf.user, postConf.passwd)
