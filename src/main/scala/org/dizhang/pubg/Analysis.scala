@@ -4,15 +4,10 @@ package org.dizhang.pubg
 import org.slf4j.{Logger, LoggerFactory}
 import java.util.{Properties, UUID}
 import java.util.concurrent.TimeUnit
-
-import org.apache.flink.api.common.functions.{FlatMapFunction, MapFunction}
 import org.apache.flink.api.common.serialization.SimpleStringSchema
 import org.apache.flink.streaming.api.TimeCharacteristic
-import org.apache.flink.streaming.api.functions.timestamps.BoundedOutOfOrdernessTimestampExtractor
 import org.apache.flink.streaming.api.scala._
 import org.apache.flink.streaming.connectors.kafka.{FlinkKafkaConsumer011, FlinkKafkaProducer011}
-import org.apache.flink.util.Collector
-import org.dizhang.pubg.Stat.KeyedCounter
 import org.dizhang.pubg.StatDescriber.Cnt2
 
 object Analysis {
@@ -58,13 +53,18 @@ object Analysis {
         /** stateful joining */
         //val lateEvent = OutputTag[KeyedCounter]("lateEvents")
         val myJoinFunc = new JoinFunction(conf.window, simpleGrade.size, simpleCredit.size)
-        val myJoinFunc2 = new JoinFunction2(conf.window, simpleGrade.size, simpleCredit.size)
-        val myJoinFunc3 = new JoinFunction3(conf.window, simpleGrade.size, simpleCredit.size)
         val streams = matchesStream.connect(reportsStream).flatMap(
-          myJoinFunc3
+          myJoinFunc
         ).map{r =>
             val cnt = names.zip(r._3).map(p => s"${p._1}:${p._2}")
-            s"${r._1},${r._2},${cnt.mkString(",")}"
+            val tag =
+              if (r._3(3) >= 3)
+                "C"
+              else if (r._3(2) >= 3)
+                "R"
+              else
+                "N"
+            s"${r._1},${r._2},${cnt.mkString(",")},$tag"
         }
         /**
 
@@ -87,7 +87,11 @@ object Analysis {
           "Stats",
           new SimpleStringSchema()
         )
+
+        val postgresSink = new PostgresSink(conf.postgres)
+
         streams.addSink(producer)
+        streams.addSink(postgresSink)
         //streams.writeAsText("test.csv")
 
         //streams.getSideOutput(lateEvent).writeAsText("late.csv")

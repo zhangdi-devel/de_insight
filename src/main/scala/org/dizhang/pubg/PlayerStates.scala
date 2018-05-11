@@ -25,7 +25,7 @@ import PlayerStates._
 import org.slf4j.{Logger, LoggerFactory}
 
 /**
-  * element1 will be windowed
+  * elements will be aggregated to windows
   * windowSize unit is second
   * */
 

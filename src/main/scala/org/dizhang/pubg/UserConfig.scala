@@ -27,7 +27,7 @@ package org.dizhang.pubg
 import java.nio.file.Paths
 
 import com.typesafe.config.ConfigFactory
-import org.dizhang.pubg.UserConfig.Topic
+import org.dizhang.pubg.UserConfig.{Postgres, Topic}
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.util.{Failure, Success, Try}
@@ -36,7 +36,8 @@ case class UserConfig(group: String,
                       watermark: Int,
                       topic: Topic,
                       window: Map[String, List[Int]],
-                      brokers: List[String])
+                      brokers: List[String],
+                      postgres: Postgres)
 
 object UserConfig {
 
@@ -57,4 +58,6 @@ object UserConfig {
   }
 
   case class Topic(matches: String, reports: String, offset: String)
+
+  case class Postgres(host: String, port: Int, db: String, user: String, passwd: String)
 }

@@ -25,7 +25,6 @@ sealed trait Stat extends Serializable {
 
 object Stat {
 
-
   type KeyedCounter = (String, Long, Array[Int])
 
   class Counter(val length: Int) extends Stat {
@@ -50,6 +49,22 @@ object Stat {
   case class Grade(kills: Int, deaths: Int) {
     def ++(that: Grade): Grade = {
       Grade(this.kills + that.kills, this.deaths + that.deaths)
+    }
+  }
+
+  case class SimpleResult(player: String,
+                          period: String, time: Long,
+                          kills: Int, deaths: Int,
+                          reports: Int, reported: Int, tag: String)
+
+  object SimpleResult {
+    def apply(line: String): Option[SimpleResult] = {
+      val rec = """([^,]+),(\w+),(\d+),kills:(\d+),deaths:(\d+),reports:(\d+),reported:(\d+),(\w+)""".r
+      line match {
+        case rec(u, p, t, k, d, r, rd, tag) =>
+          Some(SimpleResult(u,p,t.toLong, k.toInt, d.toInt, r.toInt, rd.toInt, tag))
+        case _ => None
+      }
     }
   }
 
