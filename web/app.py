@@ -5,8 +5,15 @@ import dash
 from dash.dependencies import Input, Output, State
 import dash_core_components as dcc
 import dash_html_components as html
+import dash_table_experiments as dt
 import getpass
 import plotly
+import pandas as pd
+import json
+
+
+columnNames = ['Player', 'period', 'update time', 'Kills',
+               'Deaths', 'Reports', 'Be reported', 'Tag']
 
 
 def getDB(user):
@@ -14,80 +21,189 @@ def getDB(user):
     return db
 
 
-def getData(db, max_rows=20):
-    st = "select * from pubg where period='lastHour' order by reported desc limit {}".format(max_rows)
-    res = db.query(st)
-    return res
-
-
-def generate_table(data):
-    cols = ['player', 'period', 'update time', 'kills',
-            'deaths', 'reports', 'reported', 'tag']
-    return html.Table(
-        # Header
-        [html.Tr([html.Th(col) for col in cols])] +
-        # Body
-        [html.Tr([
-            html.Td(data[row][col]) if col != 2 else data[row][col].ctime()
-            for col in range(len(cols))
-        ]) for row in range(len(data))]
-    )
-
-
 db = getDB(getpass.getuser())
 
+
+def getData(db, period, max_rows):
+    st = ("select * from pubg where period='{}' "
+          "order by reported desc limit {}""".format(period, max_rows))
+    res = db.query(st).getresult()
+    data = pd.DataFrame.from_records(res, columns=columnNames)
+    return data
+
+
 app = dash.Dash()
+app.css.append_css({
+    'external_url': 'https://codepen.io/chriddyp/pen/bWLwgP.css'})
 app.layout = html.Div([
     html.H4(children='FairPlay Dashboard'),
     # generate_table(data)
-    dcc.Graph(id='graph-fp'),
+
+    html.Div([
+        html.Div([
+            html.Label('Data refreshing frequency'),
+            dcc.RadioItems(
+                id='refresh-freq',
+                options=[
+                    {'label': ' 1 second', 'value': '1'},
+                    {'label': ' 5 seconds', 'value': '5'},
+                    {'label': ' 1 minute', 'value': '60'},
+                    {'label': ' very long', 'value': '3600'}
+                ],
+                value='5'
+            )
+        ], className='three columns'),
+        html.Div([
+            html.Label('Show players'),
+            dcc.RadioItems(
+                id='num-players',
+                options=[
+                    {'label': ' top 20', 'value': '20'},
+                    {'label': ' top 40', 'value': '40'},
+                    {'label': ' top 60', 'value': '60'},
+                    {'label': ' top 80', 'value': '80'}
+                ],
+                value='20'
+            )
+        ], className='three columns'),
+        html.Div([
+            html.Label('Time window'),
+            dcc.RadioItems(
+                id='time-window',
+                options=[
+                    {'label': ' 1 hour', 'value': 'lastHour'},
+                    {'label': ' 24 hours', 'value': 'lastDay'},
+                    {'label': ' 30 days', 'value': 'lastMonth'}
+                ],
+                value='lastHour'
+            )
+        ], className='three columns')
+    ], className='row'),
+    html.Div([
+        dt.DataTable(
+            id='table-fp',
+            rows=[{}],
+            row_selectable=True,
+            sortable=True,
+            selected_row_indices=[]
+        )
+    ], className='row'),
+    html.Div([
+        dcc.Graph(id='graph-fp')
+    ], className='row'),
     dcc.Interval(
         id='interval-component',
-        interval=1*1000,  # in milliseconds
+        interval=60000,  # in milliseconds
         n_intervals=0
-    )
-], className="container")
+    ),
+    html.Div(id='data', style={'display': 'none'}),
+    html.Div(id='conf', style={'display': 'none'})
+])
+
+
+@app.callback(
+    Output('interval-component', 'interval'),
+    [Input('refresh-freq', 'value')]
+)
+def update_interval(freq):
+    return int(freq) * 1000
+
+
+@app.callback(
+    Output('conf', 'children'),
+    [Input('num-players', 'value'),
+     Input('time-window', 'value')]
+)
+def update_conf(num, window):
+    conf = {
+        'num': num,
+        'window': window
+    }
+    confJson = json.dumps(conf)
+    return confJson
+
+
+@app.callback(
+    Output('data', 'children'),
+    [Input('conf', 'children')]
+)
+def update_data(confJson):
+    conf = json.loads(confJson)
+    df = getData(db, conf['window'], conf['num'])
+    return df.to_json(date_format='iso', orient='split')
+
+
+@app.callback(
+    Output('table-fp', 'selected_row_indices'),
+    [Input('graph-fp', 'clickData')],
+    [State('table-fp', 'selected_row_indices')]
+)
+def update_selected_rows(clickData, selected_rows):
+    if clickData:
+        for point in clickData['points']:
+            if point['pointNumber'] in selected_rows:
+                selected_rows.remove(point['pointNumber'])
+            else:
+                selected_rows.append(point['pointNumber'])
+    return selected_rows
+
+
+@app.callback(
+    Output('table-fp', 'rows'),
+    [Input('data', 'children'),
+     Input('interval-component', 'n_intervals')],
+    [State('conf', 'children')]
+)
+def update_table(dataJson, n, confJson):
+    data = pd.read_json(dataJson, orient='split')
+    df = data[['Player', 'Kills', 'Deaths', 'Reports', 'Be reported', 'Tag']]
+    return df.to_dict('records')
 
 
 @app.callback(
     Output('graph-fp', 'figure'),
-    [Input('interval-component', 'n_intervals')])
-def update_figure(n):
-    data = getData(db).getresult()
+    [Input('table-fp', 'rows'),
+     Input('table-fp', 'selected_row_indices')]
+)
+def update_figure(rows, selected_rows):
+    data = pd.DataFrame(rows)
     size = len(data)
     fig = plotly.tools.make_subplots(
         rows=4, cols=1,
         subplot_titles=['Kills', 'Deaths', 'Reportings', 'Be reported'],
-        shared_xaxes=True
+        shared_xaxes=True,
+        print_grid=False
     )
     marker = {'color': ['#0074D9']*size}
+    for i in (selected_rows or []):
+        marker['color'][i] = '#FF851B'
     fig.append_trace({
-        'x': [data[row][0] for row in range(size)],
-        'y': [data[row][3] for row in range(size)],
+        'x': data['Player'],
+        'y': data['Kills'],
         'type': 'bar',
         'marker': marker
     }, 1, 1)
     fig.append_trace({
-        'x': [data[row][0] for row in range(size)],
-        'y': [data[row][4] for row in range(size)],
+        'x': data['Player'],
+        'y': data['Deaths'],
         'type': 'bar',
         'marker': marker
     }, 2, 1)
     fig.append_trace({
-        'x': [data[row][0] for row in range(size)],
-        'y': [data[row][5] for row in range(size)],
+        'x': data['Player'],
+        'y': data['Reports'],
         'type': 'bar',
         'marker': marker
     }, 3, 1)
     fig.append_trace({
-        'x': [data[row][0] for row in range(size)],
-        'y': [data[row][6] for row in range(size)],
+        'x': data['Player'],
+        'y': data['Be reported'],
         'type': 'bar',
         'marker': marker
     }, 4, 1)
     fig['layout']['showlegend'] = False
     fig['layout']['height'] = 1000
-    fig['layout']['width'] = 600
+    fig['layout']['width'] = 800
     fig['layout']['margin'] = {
         'l': 40,
         'r': 40,
@@ -98,10 +214,4 @@ def update_figure(n):
 
 
 if __name__ == "__main__":
-    data = getData(db)
-    # res = [data[1][col] if col != 2 else data[1][col].ctime()
-    #        for col in range(8)]  # for row in range(len(data))
-    print(data)
-    # print(generate_table(data))
-
     app.run_server(debug=True)
