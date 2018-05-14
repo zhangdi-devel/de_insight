@@ -10,18 +10,19 @@ import getpass
 import plotly
 import pandas as pd
 import json
-
+import sys
 
 columnNames = ['Player', 'period', 'update time', 'Kills',
                'Deaths', 'Reports', 'Be reported', 'Tag']
 
 
-def getDB(user):
-    db = DB(dbname=user, host='localhost', port=5432, user=user, passwd=user)
+def getDB(host, user):
+    db = DB(dbname=user, host=host, port=5432, user=user, passwd=user)
     return db
 
 
-db = getDB(getpass.getuser())
+# db = getDB('localhost', getpass.getuser())
+db = getDB('ec2-54-190-243-251.us-west-2.compute.amazonaws.com', 'ubuntu')
 
 
 def getData(db, period, max_rows, sortCol):
@@ -153,6 +154,8 @@ def update_conf(num, window, sort_col):
      Input('interval-component', 'n_intervals')]
 )
 def update_data(confJson, n):
+    cnt = db.query("select count(*) from pubg")
+    print("new data! count: {}".format(cnt.getresult()[0][0]))
     conf = json.loads(confJson)
     df = getData(db, conf['window'], conf['num'], conf['sortCol'])
     return df.to_json(date_format='iso', orient='split')
