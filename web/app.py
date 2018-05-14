@@ -25,8 +25,15 @@ db = getDB(getpass.getuser())
 
 
 def getData(db, period, max_rows, sortCol):
-    st = ("select * from pubg where period='{}' "
-          "order by {} desc limit {}""".format(period, sortCol, max_rows))
+    interval = '1 hour'
+    if period == 'lastDay':
+        interval = '1 day'
+    elif period == 'lastMonth':
+        interval = '1 month'
+    st = ("select * from pubg where period='{0}' and time > ("
+          "select max(time) from pubg where period='{0}') - interval '{1}'"
+          "order by {2} desc limit {3}"
+          .format(period, interval, sortCol, max_rows))
     res = db.query(st).getresult()
     data = pd.DataFrame.from_records(res, columns=columnNames)
     return data
