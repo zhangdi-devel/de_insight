@@ -24,9 +24,9 @@ def getDB(user):
 db = getDB(getpass.getuser())
 
 
-def getData(db, period, max_rows):
+def getData(db, period, max_rows, sortCol):
     st = ("select * from pubg where period='{}' "
-          "order by reported desc limit {}""".format(period, max_rows))
+          "order by {} desc limit {}""".format(period, sortCol, max_rows))
     res = db.query(st).getresult()
     data = pd.DataFrame.from_records(res, columns=columnNames)
     return data
@@ -41,6 +41,19 @@ app.layout = html.Div([
 
     html.Div([
         html.Div([
+            html.Label('Sort by'),
+            dcc.RadioItems(
+                id='sort-col',
+                options=[
+                    {'label': ' Kills', 'value': 'kills'},
+                    {'label': ' Deaths', 'value': 'deaths'},
+                    {'label': ' Reports', 'value': 'reports'},
+                    {'label': ' Be reported', 'value': 'reported'}
+                ],
+                value='reported'
+            )
+        ], className='two columns'),
+        html.Div([
             html.Label('Data refreshing frequency'),
             dcc.RadioItems(
                 id='refresh-freq',
@@ -52,7 +65,7 @@ app.layout = html.Div([
                 ],
                 value='5'
             )
-        ], className='three columns'),
+        ], className='two columns'),
         html.Div([
             html.Label('Show players'),
             dcc.RadioItems(
@@ -65,7 +78,7 @@ app.layout = html.Div([
                 ],
                 value='20'
             )
-        ], className='three columns'),
+        ], className='two columns'),
         html.Div([
             html.Label('Time window'),
             dcc.RadioItems(
@@ -77,16 +90,18 @@ app.layout = html.Div([
                 ],
                 value='lastHour'
             )
-        ], className='three columns')
+        ], className='two columns')
     ], className='row'),
     html.Div([
-        dt.DataTable(
-            id='table-fp',
-            rows=[{}],
-            row_selectable=True,
-            sortable=True,
-            selected_row_indices=[]
-        )
+        html.Div([
+            dt.DataTable(
+                id='table-fp',
+                rows=[{}],
+                row_selectable=True,
+                sortable=True,
+                selected_row_indices=[]
+            )
+        ], className='eight columns')
     ], className='row'),
     html.Div([
         dcc.Graph(id='graph-fp')
@@ -112,12 +127,14 @@ def update_interval(freq):
 @app.callback(
     Output('conf', 'children'),
     [Input('num-players', 'value'),
-     Input('time-window', 'value')]
+     Input('time-window', 'value'),
+     Input('sort-col', 'value')]
 )
-def update_conf(num, window):
+def update_conf(num, window, sort_col):
     conf = {
         'num': num,
-        'window': window
+        'window': window,
+        'sortCol': sort_col
     }
     confJson = json.dumps(conf)
     return confJson
@@ -129,7 +146,7 @@ def update_conf(num, window):
 )
 def update_data(confJson):
     conf = json.loads(confJson)
-    df = getData(db, conf['window'], conf['num'])
+    df = getData(db, conf['window'], conf['num'], conf['sortCol'])
     return df.to_json(date_format='iso', orient='split')
 
 
