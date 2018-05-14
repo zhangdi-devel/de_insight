@@ -66,97 +66,7 @@ object Analysis {
                 "N"
             s"${r._1},${r._2},${cnt.mkString(",")},$tag"
         }
-        /**
 
-        val result = matchesStream.connect(reportsStream).flatMap(
-          myJoinFunc
-        ).map{r =>
-          val cnt = names.zip(r._3).map(p => s"${p._1}:${p._2}")
-          s"${r._1},${r._2},${cnt.mkString(",")}"
-        }
-
-        result.print()
-
-        result.writeAsText("test.csv")
-        */
-
-        //streams.print()
-
-        val producer = new FlinkKafkaProducer011[String](
-          conf.brokers.mkString(","),
-          "Stats",
-          new SimpleStringSchema()
-        )
-
-        val postgresSink = new PostgresSink(conf.postgres)
-
-        streams.addSink(producer)
-        streams.addSink(postgresSink)
-        //streams.writeAsText("test.csv")
-
-        //streams.getSideOutput(lateEvent).writeAsText("late.csv")
-        //env.setParallelism(1)
-        val res = env.execute()
-
-        logger.info(s"${res.getNetRuntime(TimeUnit.SECONDS)} seconds")
-
-        /**
-        /*match stream*/
-        val simpleGrade = new Cnt2[(Record, Long)](
-          ("kills", "deaths"), p => (p._1.event.killer.id, p._1.event.victim.id), p => p._2
-        )
-        val matchesStream = env.addSource(matches).flatMap{
-          new FlatMapFunction[(Record, Long), KeyedCounter] {
-            override def flatMap(value: (Record, Long), out: Collector[(String, Long, Array[Int])]): Unit = {
-              simpleGrade.fromEvent(value).foreach(r => out.collect(r))
-            }
-          }
-        }.keyBy(0)
-
-        /**
-          *
-          .assignTimestampsAndWatermarks(
-          new BoundedOutOfOrdernessTimestampExtractor[KeyedCounter](Time.seconds(conf.watermark)) {
-            override def extractTimestamp(element: KeyedCounter): Long = element._2
-          }
-        )
-          * */
-
-        /*report stream*/
-        val simpleCredit = new Cnt2[Report](
-          ("reports", "reported"), r => (r.reporter, r.cheater), r => r.time
-        )
-        val reportsStream = env.addSource(reports).flatMap{
-          new FlatMapFunction[Report, KeyedCounter] {
-            override def flatMap(value: Report, out: Collector[(String, Long, Array[Int])]): Unit = {
-              simpleCredit.fromEvent(value).foreach(r => out.collect(r))
-            }
-          }
-        }.keyBy(0)
-
-        /**
-          * .assignTimestampsAndWatermarks(
-          new BoundedOutOfOrdernessTimestampExtractor[KeyedCounter](Time.seconds(conf.watermark)) {
-            override def extractTimestamp(element: KeyedCounter): Long = element._2
-          }
-        )
-          */
-
-        val names = simpleGrade.names ++ simpleCredit.names
-
-        /** stateful joining */
-        val myJoinFunc = new JoinFunction(conf.window, simpleGrade.size, simpleCredit.size)
-        val result = reportsStream.connect(matchesStream).flatMap(
-          myJoinFunc
-          //new JoinFunction(conf.window, simpleGrade.size, simpleCredit.size)
-        ).map{
-          new MapFunction[KeyedCounter, String] {
-            override def map(r: (String, Long, Array[Int])): String = {
-              val cnt = names.zip(r._3).map(p => s"${p._1}:${p._2}")
-              s"${r._1},${r._2},${cnt.mkString(",")}"
-            }
-          }
-        }
 
         /* write back to kafka */
         val producer = new FlinkKafkaProducer011[String](
@@ -164,11 +74,17 @@ object Analysis {
           "Stats",
           new SimpleStringSchema()
         )
-        result.addSink(producer)
-        result.print()
-        val res = env.execute("Analysis")
-        logger.info(s"runtime: ${res.getNetRuntime(TimeUnit.MINUTES)}")
-          */
+        streams.addSink(producer)
+
+        /* write results to Postgres */
+        val postgresSink = new PostgresSink(conf.postgres)
+
+        streams.addSink(postgresSink)
+
+        val res = env.execute()
+
+        logger.info(s"${res.getNetRuntime(TimeUnit.SECONDS)} seconds")
+
     }
   }
 }
