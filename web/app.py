@@ -83,7 +83,7 @@ app.layout = html.Div([
                     {'label': ' top 60', 'value': '60'},
                     {'label': ' top 80', 'value': '80'}
                 ],
-                value='20'
+                value='60'
             )
         ], className='two columns'),
         html.Div([
@@ -95,7 +95,7 @@ app.layout = html.Div([
                     {'label': ' 24 hours', 'value': 'lastDay'},
                     {'label': ' 30 days', 'value': 'lastMonth'}
                 ],
-                value='lastHour'
+                value='lastDay'
             )
         ], className='two columns')
     ], className='row'),
@@ -149,9 +149,10 @@ def update_conf(num, window, sort_col):
 
 @app.callback(
     Output('data', 'children'),
-    [Input('conf', 'children')]
+    [Input('conf', 'children'),
+     Input('interval-component', 'n_intervals')]
 )
-def update_data(confJson):
+def update_data(confJson, n):
     conf = json.loads(confJson)
     df = getData(db, conf['window'], conf['num'], conf['sortCol'])
     return df.to_json(date_format='iso', orient='split')
@@ -174,11 +175,10 @@ def update_selected_rows(clickData, selected_rows):
 
 @app.callback(
     Output('table-fp', 'rows'),
-    [Input('data', 'children'),
-     Input('interval-component', 'n_intervals')],
+    [Input('data', 'children')],
     [State('conf', 'children')]
 )
-def update_table(dataJson, n, confJson):
+def update_table(dataJson, confJson):
     data = pd.read_json(dataJson, orient='split')
     df = data[['Player', 'Kills', 'Deaths', 'Reports', 'Be reported', 'Tag']]
     return df.to_dict('records')
