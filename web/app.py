@@ -151,14 +151,16 @@ def update_conf(num, window, sort_col):
 @app.callback(
     Output('data', 'children'),
     [Input('conf', 'children'),
-     Input('interval-component', 'n_intervals')]
+     Input('interval-component', 'n_intervals')],
+    [State('data', 'children')]
 )
-def update_data(confJson, n):
-    cnt = db.query("select count(*) from pubg")
-    print("new data! count: {}".format(cnt.getresult()[0][0]))
+def update_data(confJson, n, old):
     conf = json.loads(confJson)
-    df = getData(db, conf['window'], conf['num'], conf['sortCol'])
-    return df.to_json(date_format='iso', orient='split')
+    try:
+        df = getData(db, conf['window'], conf['num'], conf['sortCol'])
+        return df.to_json(date_format='iso', orient='split')
+    except Exception:
+        return old
 
 
 @app.callback(
@@ -189,11 +191,12 @@ def update_table(dataJson, confJson):
 
 @app.callback(
     Output('graph-fp', 'figure'),
-    [Input('table-fp', 'rows'),
-     Input('table-fp', 'selected_row_indices')]
+    [Input('data', 'children')],
+    [State('table-fp', 'selected_row_indices')]
 )
-def update_figure(rows, selected_rows):
-    data = pd.DataFrame(rows)
+def update_figure(dataJson, selected_rows):
+    js = pd.read_json(dataJson, orient='split')
+    data = js[['Player', 'Kills', 'Deaths', 'Reports', 'Be reported', 'Tag']]
     size = len(data)
     fig = plotly.tools.make_subplots(
         rows=4, cols=1,
